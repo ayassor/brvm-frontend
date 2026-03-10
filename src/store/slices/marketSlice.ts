@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import { marketApi } from '../../api/market.api'
+// TODO: remplacer par le vrai marketApi quand le backend est prêt
+import { mockMarketApi as marketApi } from '../../mocks/brvm-data'
 import type { MarketOverview, MarketStock } from '../../types'
 
 interface MarketState {

@@ -5,16 +5,16 @@ export default {
     extend: {
       colors: {
         brvm: {
-          bg: '#0a0e1a',
-          card: '#111827',
-          border: '#1f2937',
-          green: '#10b981',
-          red: '#ef4444',
-          gold: '#f59e0b',
-          blue: '#3b82f6',
-          muted: '#6b7280',
-          text: '#f9fafb',
-          subtext: '#9ca3af',
+          bg: '#f4f6f8',
+          card: '#ffffff',
+          border: '#e2e8f0',
+          green: '#059669',
+          red: '#dc2626',
+          gold: '#d97706',
+          blue: '#2563eb',
+          muted: '#94a3b8',
+          text: '#0f172a',
+          subtext: '#475569',
         },
       },
       fontFamily: {

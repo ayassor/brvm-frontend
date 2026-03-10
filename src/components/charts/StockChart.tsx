@@ -24,7 +24,7 @@ const periods: { label: string; value: Period }[] = [
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-brvm-card border border-brvm-border rounded-lg px-3 py-2 shadow-xl">
+      <div className="bg-white border border-brvm-border rounded-lg px-3 py-2 shadow-lg">
         <p className="text-brvm-muted text-xs mb-1">{label}</p>
         <p className="text-brvm-green font-bold text-sm">{payload[0].value.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} FCFA</p>
       </div>
@@ -51,7 +51,7 @@ export default function StockChart({ prices, onPeriodChange, currentPeriod, load
       {/* Period selector */}
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-brvm-text font-semibold">Historique des cours</h3>
-        <div className="flex gap-1 bg-black/20 rounded-lg p-1">
+        <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
           {periods.map((p) => (
             <button
               key={p.value}
@@ -85,16 +85,16 @@ export default function StockChart({ prices, onPeriodChange, currentPeriod, load
                 <stop offset="95%" stopColor={color} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
             <XAxis
               dataKey="date"
-              tick={{ fill: '#6b7280', fontSize: 11 }}
+              tick={{ fill: '#94a3b8', fontSize: 11 }}
               axisLine={false}
               tickLine={false}
               interval="preserveStartEnd"
             />
             <YAxis
-              tick={{ fill: '#6b7280', fontSize: 11 }}
+              tick={{ fill: '#94a3b8', fontSize: 11 }}
               axisLine={false}
               tickLine={false}
               width={70}

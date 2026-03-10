@@ -76,7 +76,7 @@ export default function Register() {
             <h3 className="text-brvm-text font-bold text-xl mb-6">Créer un compte gratuit</h3>
 
             {error && (
-              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg mb-5 text-sm">
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-5 text-sm">
                 <AlertCircle size={16} />
                 {error}
               </div>
@@ -92,7 +92,7 @@ export default function Register() {
                   placeholder="Jean Dupont"
                   required
                   minLength={2}
-                  className="w-full bg-black/20 border border-brvm-border rounded-lg px-4 py-3 text-brvm-text placeholder:text-brvm-muted text-sm focus:outline-none focus:border-brvm-green transition-colors"
+                  className="w-full bg-slate-50 border border-brvm-border rounded-lg px-4 py-3 text-brvm-text placeholder:text-brvm-muted text-sm focus:outline-none focus:border-brvm-green transition-colors"
                 />
               </div>
 
@@ -104,7 +104,7 @@ export default function Register() {
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="vous@exemple.com"
                   required
-                  className="w-full bg-black/20 border border-brvm-border rounded-lg px-4 py-3 text-brvm-text placeholder:text-brvm-muted text-sm focus:outline-none focus:border-brvm-green transition-colors"
+                  className="w-full bg-slate-50 border border-brvm-border rounded-lg px-4 py-3 text-brvm-text placeholder:text-brvm-muted text-sm focus:outline-none focus:border-brvm-green transition-colors"
                 />
               </div>
 
@@ -118,7 +118,7 @@ export default function Register() {
                     placeholder="Minimum 8 caractères"
                     required
                     minLength={8}
-                    className="w-full bg-black/20 border border-brvm-border rounded-lg px-4 py-3 pr-11 text-brvm-text placeholder:text-brvm-muted text-sm focus:outline-none focus:border-brvm-green transition-colors"
+                    className="w-full bg-slate-50 border border-brvm-border rounded-lg px-4 py-3 pr-11 text-brvm-text placeholder:text-brvm-muted text-sm focus:outline-none focus:border-brvm-green transition-colors"
                   />
                   <button
                     type="button"
