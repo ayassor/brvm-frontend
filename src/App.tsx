@@ -13,6 +13,7 @@ import Market from './pages/Market'
 import CompanyDetail from './pages/CompanyDetail'
 import Bonds from './pages/Bonds'
 import News from './pages/News'
+import NewsArticle from './pages/NewsArticle'
 import AssetManagers from './pages/AssetManagers'
 import Portfolio from './pages/Portfolio'
 import Education from './pages/Education'
@@ -22,6 +23,7 @@ import ApiDebug from './pages/ApiDebug'
 import LiveApiDebug from './pages/LiveApiDebug'
 import Ai from './pages/Ai'
 import DataImport from './pages/DataImport'
+import Admin from './pages/Admin'
 
 export default function App() {
   return (
@@ -36,6 +38,7 @@ export default function App() {
             <Route path="/market/:id" element={<CompanyDetail />} />
             <Route path="/bonds" element={<Bonds />} />
             <Route path="/news" element={<News />} />
+            <Route path="/news/:id" element={<NewsArticle />} />
             <Route path="/asset-managers" element={<AssetManagers />} />
             <Route path="/education" element={<Education />} />
             <Route path="/brvm-package" element={<BrvmPackage />} />
@@ -54,6 +57,7 @@ export default function App() {
             />
             <Route path="/portfolio" element={<Portfolio />} />
           </Route>
+          <Route path="/admin" element={<Admin />} />
           <Route element={<LayoutFull />}>
             <Route path="/simulator/portfolio" element={<BrvmSimulator />} />
           </Route>

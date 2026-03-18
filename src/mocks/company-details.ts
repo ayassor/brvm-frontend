@@ -364,10 +364,10 @@ export const COMPANY_DETAILS: Record<number, CompanyFullDetail> = {
     ],
   },
 
-  // ── 23 · NEIC – NEI-CEDA CI ──────────────────────────────────────────────
+  // ── 23 · NEIC – NEI-CEDA CI ───────────────────────────────────────────────
   23: {
     annual_variation_pct: 20.83,
-    net_income_bn_fcfa: null, net_margin_pct: null, ebitda_bn_fcfa: 2.0, free_float_pct: 52,
+    net_income_bn_fcfa: 0.75, net_margin_pct: 5.0, ebitda_bn_fcfa: 2.0, free_float_pct: 52,
     ceo: 'Kouassi Bah', ceo_title: 'Directeur Général',
     activities: ["Édition de manuels scolaires (programme officiel ivoirien)", "Distribution de livres parascolaires et pédagogiques", "Impression offset pour l'Afrique de l'Ouest", "Fourniture de matériel didactique aux établissements scolaires"],
     certifications: ['ISO 9001:2015'],
@@ -395,7 +395,7 @@ export const COMPANY_DETAILS: Record<number, CompanyFullDetail> = {
   // ── 25 · UNXC – Uniwax CI ────────────────────────────────────────────────
   25: {
     annual_variation_pct: 68.21,
-    net_income_bn_fcfa: null, net_margin_pct: null, ebitda_bn_fcfa: 5.0, free_float_pct: 45,
+    net_income_bn_fcfa: 2.8, net_margin_pct: 4.5, ebitda_bn_fcfa: 5.0, free_float_pct: 45,
     ceo: 'Aude Gillier', ceo_title: 'Directrice Générale',
     activities: ['Impression de tissus wax et Super wax africains', 'Création de motifs imprimés (designs originaux)', 'Commercialisation sous les marques Uniwax et Vlisco', 'Exportation vers Europe, Amérique du Nord et Asie'],
     certifications: ['OEKO-TEX Standard 100'],
@@ -569,7 +569,7 @@ export const COMPANY_DETAILS: Record<number, CompanyFullDetail> = {
   // ── 38 · ORGT – Oragroup Togo ─────────────────────────────────────────────
   38: {
     annual_variation_pct: 37.50,
-    net_income_bn_fcfa: null, net_margin_pct: null, ebitda_bn_fcfa: null, free_float_pct: 45,
+    net_income_bn_fcfa: 6.2, net_margin_pct: 8.0, ebitda_bn_fcfa: 14.5, free_float_pct: 45,
     ceo: 'Ferdinand Ngon Kemoum', ceo_title: 'Directeur Général',
     activities: ['Banque universelle dans 10 pays d\'Afrique subsaharienne', 'Microfinance et inclusion financière', 'Mobile banking et transferts diaspora', 'Financement des PME et agrobusiness'],
     certifications: ['ISO 9001:2015'],
@@ -583,7 +583,7 @@ export const COMPANY_DETAILS: Record<number, CompanyFullDetail> = {
   // ── 39 · SAFC – SAFCA CI ─────────────────────────────────────────────────
   39: {
     annual_variation_pct: 81.54,
-    net_income_bn_fcfa: null, net_margin_pct: null, ebitda_bn_fcfa: 2.5, free_float_pct: 55,
+    net_income_bn_fcfa: 0.63, net_margin_pct: 3.5, ebitda_bn_fcfa: 2.5, free_float_pct: 55,
     ceo: 'Kouadio Koffi', ceo_title: 'Directeur Général',
     activities: ['Crédit automobile pour particuliers et entreprises', 'Financement de flottes professionnelles', 'Assurance crédit et produits connexes', 'Partenariats avec concessionnaires automobiles'],
     certifications: ['Agréé BCEAO'],
@@ -668,7 +668,7 @@ export const COMPANY_DETAILS: Record<number, CompanyFullDetail> = {
   // ── 45 · STAC – SETAO CI ─────────────────────────────────────────────────
   45: {
     annual_variation_pct: 50.19,
-    net_income_bn_fcfa: null, net_margin_pct: null, ebitda_bn_fcfa: 3.5, free_float_pct: 52,
+    net_income_bn_fcfa: 1.54, net_margin_pct: 5.5, ebitda_bn_fcfa: 3.5, free_float_pct: 52,
     ceo: 'Michel Kouame', ceo_title: 'Directeur Général',
     activities: ['Travaux de génie civil et terrassement', 'Construction de routes et autoroutes', 'Réalisation d\'ouvrages d\'art et ponts', 'Assainissement et réseaux d\'eau'],
     certifications: ['ISO 9001:2015', 'Certification BTP Côte d\'Ivoire'],

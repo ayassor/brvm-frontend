@@ -351,7 +351,7 @@ export const MOCK_COMPANIES: Company[] = [
 ]
 
 // ─── Cours de clôture réels – 27 fév. 2026 ───────────────────────────────────
-const BASE_PRICES: Record<number, number> = {
+export const BASE_PRICES: Record<number, number> = {
    1: 12505,  2:  9050,  3:  8400,  4: 13400,  5:  2800,
    6:  2910,  7: 17000,  8: 37450,  9:  6925, 10:  2790,
   11: 15555, 12: 29300, 13:  1650, 14:  4300, 15: 44075,

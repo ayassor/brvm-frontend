@@ -3,9 +3,59 @@ import {
   createChart, ColorType, CrosshairMode, LineStyle, PriceScaleMode,
   type IChartApi, type ISeriesApi, type Time,
 } from 'lightweight-charts'
-import { RefreshCw, TrendingUp, TrendingDown, ChevronDown, Search, X, Settings2, Plus, BarChart2, LineChart, Building2, Newspaper, Zap, Target } from 'lucide-react'
-import { filterByPeriod, type HistoryEntry } from '../api/companies.api'
+import { RefreshCw, TrendingUp, TrendingDown, ChevronDown, Search, X, Settings2, Plus, BarChart2, LineChart as LineChartIcon, Building2, Newspaper, Zap, Target, ExternalLink } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import {
+  filterByPeriod, type HistoryEntry,
+  companiesApi,
+  type CompanyVideo, type CompanySummary,
+  type CompanyRecommendation, type AnalystRecommendation,
+  type CompanyReport, type CompanyAnnouncement,
+} from '../api/companies.api'
 import type { Company, Period } from '../types'
+import {
+  BarChart, Bar, LineChart, Line, ComposedChart,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend, LabelList,
+} from 'recharts'
+import { MOCK_EXTRAS, MOCK_COMPANIES, type CompanyExtras } from '../mocks/brvm-data'
+import { newsApi, type NewsItem } from '../api/news.api'
+import { COMPANY_DETAILS, type CompanyFullDetail, type Shareholder } from '../mocks/company-details'
+
+/* ── Shape returned by GET /api/v1/stocks/:ticker/fundamentals ── */
+interface FundHistoryEntry {
+  year:                    number
+  revenue_m_fcfa:          number
+  net_income_m_fcfa:       number
+  ebitda_m_fcfa:           number
+  pe_ratio:                number
+  eps_fcfa:                number
+  dividend_per_share_fcfa: number
+}
+
+/* ── Full response shape from GET /api/v1/stocks/:ticker/fundamentals ── */
+interface FundamentalsData {
+  ticker:             string
+  market_cap_fcfa:    number | null
+  pe_ratio:           number | null
+  dividend_yield_pct: number | null
+  revenue_bn_fcfa:    number | null
+  net_income_bn_fcfa: number | null
+  ebitda_bn_fcfa:     number | null
+  net_margin_pct:     number | null
+  history:            FundHistoryEntry[]
+  ceo:                string | null
+  ceo_title:          string | null
+  founded:            number | null
+  employees:          number | null
+  website:            string | null
+  free_float_pct:     number | null
+  activities:         string[]
+  certifications:     string[]
+  shareholders:       { name: string; pct: number; type: Shareholder['type'] }[]
+  dividends:          { year: number; amount_fcfa: number; payment_date: string; ex_date: string }[]
+  recent_news:        { date: string; headline: string; positive: boolean | null }[]
+}
 
 /* ══════════════════════════════════════════════════════════════
    HELPERS
@@ -1010,6 +1060,1187 @@ function ChipsRow({ indicators, activeOscTab, onToggleVisible, onRemove, onUpdat
 }
 
 /* ══════════════════════════════════════════════════════════════
+   NEWS PANEL
+══════════════════════════════════════════════════════════════ */
+interface NewsPanelProps {
+  ticker: string
+}
+function NewsPanel({ ticker }: NewsPanelProps) {
+  const [news, setNews] = useState<NewsItem[]>([])
+  const [loadingNews, setLoadingNews] = useState(true)
+  const [activeTag, setActiveTag] = useState<string>('Tous')
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    setLoadingNews(true)
+    newsApi.getByTicker(ticker, 20)
+      .then(v => setNews(Array.isArray(v) ? v : []))
+      .catch(() => setNews([]))
+      .finally(() => setLoadingNews(false))
+  }, [ticker])
+
+  const tags = ['Tous', ...Array.from(new Set(news.map(n => n.category)))]
+  const filtered = activeTag === 'Tous' ? news : news.filter(n => n.category === activeTag)
+
+  const pos = news.filter(n => n.isPositive === true).length
+  const neg = news.filter(n => n.isPositive === false).length
+  const neu = news.filter(n => n.isPositive !== true && n.isPositive !== false).length
+
+  if (loadingNews) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <div className="w-6 h-6 border-2 border-brvm-green border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (news.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 gap-2">
+        <Newspaper size={32} className="text-brvm-muted opacity-30" />
+        <p className="text-brvm-muted text-sm">Aucune actualité disponible pour {ticker}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-5 space-y-4">
+      {/* Sentiment bar */}
+      <div className="flex items-center gap-4 bg-slate-50 rounded-xl border border-brvm-border p-3">
+        <div className="flex gap-3 text-xs">
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-brvm-green inline-block"/>{pos} positives</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-brvm-red inline-block"/>{neg} négatives</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400 inline-block"/>{neu} neutres</span>
+        </div>
+        <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+          <div className="h-full flex">
+            <div className="bg-brvm-green h-full" style={{ width: `${news.length ? pos / news.length * 100 : 0}%` }} />
+            <div className="bg-slate-400 h-full" style={{ width: `${news.length ? neu / news.length * 100 : 0}%` }} />
+            <div className="bg-brvm-red h-full" style={{ width: `${news.length ? neg / news.length * 100 : 0}%` }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Category filter */}
+      <div className="flex gap-1.5 flex-wrap">
+        {tags.map(tag => (
+          <button key={tag} onClick={() => setActiveTag(tag)}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all ${activeTag === tag ? 'bg-brvm-green text-white border-brvm-green' : 'bg-white text-brvm-muted border-brvm-border hover:border-brvm-green/40'}`}>
+            {tag}
+          </button>
+        ))}
+      </div>
+
+      {/* News list */}
+      <div className="space-y-2">
+        {filtered.map(n => (
+          <div
+            key={n.id}
+            onClick={() => navigate(`/news/${n.id}`, { state: { from: 'live', ticker } })}
+            className="rounded-xl border border-brvm-border bg-slate-50 hover:border-brvm-green/40 hover:bg-emerald-50/30 transition-all cursor-pointer group"
+          >
+            <div className="flex gap-3 p-3">
+              <div className={`w-1 rounded-full flex-shrink-0 self-stretch ${n.isPositive === true ? 'bg-brvm-green' : n.isPositive === false ? 'bg-brvm-red' : 'bg-slate-400'}`} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-brvm-muted font-semibold">{n.category}</span>
+                  <span className="text-[10px] text-brvm-muted">
+                    {new Date(n.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                  <ExternalLink size={10} className="ml-auto text-brvm-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <p className="text-xs font-semibold text-brvm-text leading-snug group-hover:text-brvm-green transition-colors">
+                  {n.title}
+                </p>
+                <p className="text-[11px] text-brvm-muted mt-1 line-clamp-1">{n.summary}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ANNOUNCEMENTS PANEL
+══════════════════════════════════════════════════════════════ */
+interface AnnouncementsPanelProps {
+  ticker: string
+  companyName: string
+  companyId: number
+}
+function AnnouncementsPanel({ ticker, companyName }: AnnouncementsPanelProps) {
+  const [activeTab,     setActiveTab]     = useState<'rapports' | 'communiques'>('rapports')
+  const [expandedId,    setExpandedId]    = useState<number | null>(null)
+  const [reports,       setReports]       = useState<CompanyReport[]>([])
+  const [announcements, setAnnouncements] = useState<CompanyAnnouncement[]>([])
+  const [loadingR,      setLoadingR]      = useState(true)
+  const [loadingA,      setLoadingA]      = useState(true)
+
+  useEffect(() => {
+    companiesApi.getReports(ticker)
+      .then(v => setReports(Array.isArray(v) ? v : [])).catch(() => setReports([]))
+      .finally(() => setLoadingR(false))
+  }, [ticker])
+
+  useEffect(() => {
+    companiesApi.getAnnouncements(ticker, { limit: 20 })
+      .then(v => setAnnouncements(Array.isArray(v) ? v : [])).catch(() => setAnnouncements([]))
+      .finally(() => setLoadingA(false))
+  }, [ticker])
+
+  const catColors: Record<string, string> = {
+    Résultats: 'bg-blue-100 text-blue-700', AGO: 'bg-amber-100 text-amber-700',
+    Dividende: 'bg-emerald-100 text-emerald-700', Partenariat: 'bg-purple-100 text-purple-700',
+    Nomination: 'bg-slate-100 text-slate-600', Stratégie: 'bg-indigo-100 text-indigo-700',
+    Autre: 'bg-slate-100 text-slate-600',
+  }
+
+  const fmtSize = (kb: number | null) => kb ? (kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`) : null
+  const typeLabel = (t: CompanyReport['type']) =>
+    t === 'annual' ? 'Rapport Annuel' : t === 'semi_annual' ? 'Rapport Semestriel' : 'Rapport Trimestriel'
+
+  const Spinner = () => (
+    <div className="flex justify-center py-10">
+      <div className="w-5 h-5 border-2 border-brvm-green border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+
+  return (
+    <div className="p-5 space-y-5">
+      {/* Tab switcher */}
+      <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
+        {([['rapports', '📄 Rapports & Documents'], ['communiques', '📋 Communiqués']] as const).map(([id, label]) => (
+          <button key={id} onClick={() => setActiveTab(id)}
+            className={`px-3 py-1.5 rounded text-xs font-semibold transition-all ${activeTab === id ? 'bg-white text-brvm-text shadow-sm' : 'text-brvm-muted hover:text-brvm-text'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── RAPPORTS ── */}
+      {activeTab === 'rapports' && (
+        loadingR ? <Spinner /> : reports.length === 0 ? (
+          <p className="text-brvm-muted text-xs text-center py-8">Aucun rapport disponible pour {ticker}.</p>
+        ) : (
+          <div className="space-y-3">
+            {reports.map(r => (
+              <div key={r.id} className="bg-slate-50 rounded-xl border border-brvm-border p-4 flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-center flex-shrink-0 text-blue-600 text-lg">
+                  📄
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                    <p className="text-xs font-bold text-brvm-text">{r.label}</p>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${r.isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {r.isPublished ? 'Publié' : 'À venir'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-brvm-muted">
+                    {typeLabel(r.type)} · {r.year}
+                    {r.pageCount ? ` · ${r.pageCount} pages` : ''}
+                    {fmtSize(r.fileSizeKb) ? ` · ${fmtSize(r.fileSizeKb)}` : ''}
+                  </p>
+                </div>
+                {r.fileUrl ? (
+                  <a href={r.fileUrl} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brvm-green text-white text-[11px] font-semibold rounded-lg hover:bg-brvm-green/90 transition-colors flex-shrink-0">
+                    ⬇ Télécharger
+                  </a>
+                ) : (
+                  <span className="text-[11px] text-brvm-muted px-3 py-1.5 border border-brvm-border rounded-lg flex-shrink-0">
+                    Non disponible
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {/* ── COMMUNIQUÉS ── */}
+      {activeTab === 'communiques' && (
+        loadingA ? <Spinner /> : announcements.length === 0 ? (
+          <p className="text-brvm-muted text-xs text-center py-8">Aucun communiqué disponible pour {ticker}.</p>
+        ) : (
+          <div className="space-y-2">
+            {announcements.map(c => (
+              <div key={c.id} className={`rounded-xl border transition-all ${expandedId === c.id ? 'border-brvm-green/40 bg-emerald-50/30' : 'border-brvm-border bg-slate-50'}`}>
+                <div className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${catColors[c.category] ?? 'bg-slate-100 text-slate-600'}`}>
+                          {c.category}
+                        </span>
+                        <span className="text-[10px] text-brvm-muted">
+                          {new Date(c.publishedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </span>
+                        {c.source && <span className="text-[10px] text-brvm-muted">· {c.source}</span>}
+                      </div>
+                      <p className="text-xs font-semibold text-brvm-text leading-snug">{c.title}</p>
+                      {expandedId === c.id && (
+                        <p className="text-[11px] text-brvm-subtext mt-2 leading-relaxed">{c.body}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          const blob = new Blob([`${companyName}\n${c.title}\n${c.publishedAt}\n\n${c.body}\n\nSource: ${c.source ?? 'Afrivest Research'}`], { type: 'text/plain;charset=utf-8' })
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url; a.download = `${ticker}_communique_${c.id}.txt`; a.click()
+                          URL.revokeObjectURL(url)
+                        }}
+                        className="p-1.5 rounded-lg border border-brvm-border bg-white hover:bg-slate-50 text-brvm-muted hover:text-brvm-text transition-colors text-[10px]"
+                        title="Télécharger"
+                      >⬇</button>
+                      <button onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}
+                        className="p-1.5 rounded-lg border border-brvm-border bg-white hover:bg-brvm-green/5 text-brvm-muted text-[10px] transition-colors">
+                        {expandedId === c.id ? '▲' : '▼'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SUMMARY PANEL
+══════════════════════════════════════════════════════════════ */
+interface SummaryPanelProps {
+  company:      Company | null
+  extras:       CompanyExtras | null
+  details:      CompanyFullDetail | null
+  ticker:       string
+  currentPrice: number | null
+  dailyVar:     number | null
+}
+function SummaryPanel({ company, extras, details, ticker, currentPrice, dailyVar }: SummaryPanelProps) {
+  const fmtP = (v: number | null) => v != null ? Math.round(v).toLocaleString('fr-FR') : '—'
+
+  const [videos,        setVideos]        = useState<CompanyVideo[]>([])
+  const [summary,       setSummary]       = useState<CompanySummary | null>(null)
+  const [loadingVideos, setLoadingVideos] = useState(true)
+  const [loadingSummary,setLoadingSummary]= useState(true)
+
+  useEffect(() => {
+    companiesApi.getVideos(ticker)
+      .then(v => setVideos(Array.isArray(v) ? v : [])).catch(() => setVideos([]))
+      .finally(() => setLoadingVideos(false))
+    companiesApi.getSummary(ticker)
+      .then(s => setSummary(s && typeof s === 'object' ? s : null)).catch(() => setSummary(null))
+      .finally(() => setLoadingSummary(false))
+  }, [ticker])
+
+  // Fallback bull/bear si l'API ne retourne rien
+  const bullCase: string[] = summary?.bullCase?.length
+    ? summary.bullCase
+    : [
+        extras?.pe_ratio && extras.pe_ratio < 15
+          ? `Valorisation attractive : PER ${extras.pe_ratio}× inférieur à la moyenne sectorielle`
+          : `Positionnement sectoriel dominant dans ${company?.sector ?? 'son secteur'}`,
+        extras?.dividend_yield
+          ? `Rendement dividendaire solide à ${extras.dividend_yield}%, supérieur à la moyenne BRVM (~3%)`
+          : `Modèle économique résilient avec visibilité sur les revenus`,
+        `Exposition croissante aux marchés UEMOA, zone à croissance structurelle de 6%+`,
+      ].filter(Boolean)
+
+  const bearCase: string[] = summary?.bearCase?.length
+    ? summary.bearCase
+    : [
+        `Risque de liquidité modéré sur le marché secondaire BRVM`,
+        `Exposition aux fluctuations des matières premières et des devises de la zone CFA`,
+        `Risque de ralentissement de la consommation en cas de choc macroéconomique régional`,
+      ]
+
+  const executiveText = summary?.executiveText ?? company?.description ?? null
+
+  const dl = () => {
+    const content = [
+      `AFRIVEST RESEARCH — NOTE DE SYNTHÈSE`,
+      `${'═'.repeat(50)}`,
+      `Valeur   : ${company?.name ?? ticker} (${ticker})`,
+      `Secteur  : ${company?.sector ?? '—'}`,
+      `Pays     : ${company?.country ?? '—'}`,
+      `Date     : ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`,
+      '',
+      `COURS & MARCHÉ`,
+      `${'─'.repeat(30)}`,
+      `Cours actuel     : ${fmtP(currentPrice)} FCFA`,
+      `Variation jour   : ${dailyVar != null ? `${dailyVar >= 0 ? '+' : ''}${dailyVar.toFixed(2)}%` : '—'}`,
+      `Capitalisation   : ${company?.market_cap ? `${(company.market_cap / 1e9).toFixed(0)} Md FCFA` : '—'}`,
+      `P/E Ratio        : ${extras?.pe_ratio ? `${extras.pe_ratio}×` : '—'}`,
+      '',
+      `DONNÉES FINANCIÈRES 2025`,
+      `${'─'.repeat(30)}`,
+      `Chiffre d'affaires : ${extras?.revenue_bn_fcfa ? `${extras.revenue_bn_fcfa} Md FCFA` : '—'}`,
+      `Résultat net       : ${details?.net_income_bn_fcfa != null ? `${details.net_income_bn_fcfa} Md FCFA` : '—'}`,
+      `Marge nette        : ${details?.net_margin_pct != null ? `${details.net_margin_pct}%` : '—'}`,
+      `EBITDA             : ${details?.ebitda_bn_fcfa != null ? `${details.ebitda_bn_fcfa} Md FCFA` : '—'}`,
+      `Rendement div.     : ${extras?.dividend_yield ? `${extras.dividend_yield}%` : '—'}`,
+      '',
+      `DESCRIPTION`,
+      `${'─'.repeat(30)}`,
+      executiveText ?? '',
+      '',
+      `${'═'.repeat(50)}`,
+      `© Afrivest Research — ${new Date().getFullYear()}`,
+    ].join('\n')
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url; a.download = `${ticker}_afrivest_note_synthese.txt`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const fmtDuration = (sec: number | null) => {
+    if (!sec) return null
+    const m = Math.floor(sec / 60)
+    const s = sec % 60
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
+  return (
+    <div className="p-5 space-y-5">
+
+      {/* ── Vidéos ── */}
+      {(loadingVideos || videos.length > 0) && (
+        <div>
+          <p className="text-[10px] font-semibold text-brvm-muted uppercase tracking-wider mb-2.5">Vidéos</p>
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin scrollbar-thumb-slate-200">
+            {loadingVideos ? (
+              /* Skeleton cards */
+              [1, 2].map(i => (
+                <div key={i} className="flex-shrink-0 w-52 rounded-xl border border-brvm-border bg-slate-50 overflow-hidden animate-pulse">
+                  <div className="w-full h-28 bg-slate-200" />
+                  <div className="p-2.5 space-y-1.5">
+                    <div className="h-2.5 bg-slate-200 rounded w-full" />
+                    <div className="h-2.5 bg-slate-200 rounded w-3/4" />
+                    <div className="h-2 bg-slate-100 rounded w-1/2 mt-1" />
+                  </div>
+                </div>
+              ))
+            ) : (
+              videos.map(v => (
+                <a
+                  key={v.id}
+                  href={v.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 w-52 rounded-xl border border-brvm-border bg-slate-50 hover:border-brvm-green/50 hover:shadow-md transition-all group overflow-hidden"
+                >
+                  {/* Thumbnail */}
+                  <div className="w-full h-28 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center relative overflow-hidden">
+                    {v.thumbnailUrl ? (
+                      <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center">
+                        <div className="w-0 h-0 border-l-[12px] border-l-white border-t-[7px] border-t-transparent border-b-[7px] border-b-transparent ml-1" />
+                      </div>
+                    )}
+                    {/* Play overlay */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                      <div className="w-9 h-9 rounded-full bg-white/0 group-hover:bg-white/20 transition-all flex items-center justify-center">
+                        <div className="w-0 h-0 border-l-[10px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </div>
+                    {fmtDuration(v.durationSec) && (
+                      <span className="absolute bottom-1.5 right-1.5 bg-black/75 text-white text-[9px] px-1.5 py-0.5 rounded font-mono">
+                        {fmtDuration(v.durationSec)}
+                      </span>
+                    )}
+                  </div>
+                  {/* Info */}
+                  <div className="p-2.5">
+                    <p className="text-[11px] font-semibold text-brvm-text leading-snug group-hover:text-brvm-green transition-colors line-clamp-2">
+                      {v.title}
+                    </p>
+                    {v.source && (
+                      <p className="text-[10px] text-brvm-muted mt-1">{v.source}</p>
+                    )}
+                  </div>
+                </a>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Résumé exécutif ── */}
+      <div className="bg-slate-50 rounded-xl border border-brvm-border p-4 space-y-3">
+        <p className="text-xs font-bold text-brvm-text">Résumé exécutif</p>
+        {loadingSummary ? (
+          <div className="h-12 bg-slate-200 rounded animate-pulse" />
+        ) : executiveText ? (
+          <p className="text-[11px] text-brvm-subtext leading-relaxed">{executiveText}</p>
+        ) : null}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-brvm-border">
+          <div>
+            <p className="text-[10px] text-brvm-muted uppercase tracking-wider mb-2">✅ Cas haussier</p>
+            <ul className="space-y-1">
+              {bullCase.map((b, i) => (
+                <li key={i} className="text-[11px] text-brvm-subtext flex gap-1.5">
+                  <span className="text-brvm-green flex-shrink-0">+</span>{b}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="text-[10px] text-brvm-muted uppercase tracking-wider mb-2">⚠ Cas baissier</p>
+            <ul className="space-y-1">
+              {bearCase.map((b, i) => (
+                <li key={i} className="text-[11px] text-brvm-subtext flex gap-1.5">
+                  <span className="text-brvm-red flex-shrink-0">−</span>{b}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Download ── */}
+      <div className="flex items-center justify-between bg-gradient-to-r from-brvm-green/5 to-blue-500/5 rounded-xl border border-brvm-green/20 p-4">
+        <div>
+          <p className="text-xs font-bold text-brvm-text">Note de synthèse complète</p>
+          <p className="text-[10px] text-brvm-muted">Document texte · Afrivest Research</p>
+        </div>
+        <button onClick={dl}
+          className="flex items-center gap-2 px-4 py-2 bg-brvm-green text-white text-xs font-semibold rounded-lg hover:bg-brvm-green/90 transition-colors">
+          ⬇ Télécharger
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RECO PANEL
+══════════════════════════════════════════════════════════════ */
+interface RecoPanelProps {
+  company:      Company | null
+  extras:       CompanyExtras | null
+  details:      CompanyFullDetail | null
+  ticker:       string
+  currentPrice: number | null
+}
+function RecoPanel({ company, extras, details, ticker, currentPrice }: RecoPanelProps) {
+  const fmtP = (v: number | null) => v != null ? Math.round(v).toLocaleString('fr-FR') : '—'
+
+  const [reco,       setReco]       = useState<CompanyRecommendation | null>(null)
+  const [analysts,   setAnalysts]   = useState<AnalystRecommendation[]>([])
+  const [loading,    setLoading]    = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      companiesApi.getRecommendation(ticker).catch(() => null),
+      companiesApi.getAnalystRecommendations(ticker).catch(() => []),
+    ]).then(([r, a]) => {
+      setReco(r && typeof r === 'object' ? r : null)
+      setAnalysts(Array.isArray(a) ? a : [])
+    }).finally(() => setLoading(false))
+  }, [ticker])
+
+  const p   = currentPrice ?? 0
+  const pe  = extras?.pe_ratio
+  const margin = details?.net_margin_pct
+
+  // Prix cibles : API en priorité, sinon calcul
+  const fairValue = reco?.fairValue ?? (p > 0 ? Math.round(pe ? p * (15 / pe) * 1.08 : p * 1.18) : null)
+  const buyPrice  = reco?.buyPrice  ?? (p > 0 ? Math.round(p * 0.97) : null)
+  const stopLoss  = reco?.stopLoss  ?? (p > 0 ? Math.round(p * 0.88) : null)
+  const horizon   = reco?.horizon   ?? ((['Finance', 'Banque', 'Assurance'].some(s => (company?.sector ?? '').includes(s))) ? 'Long terme (18–36 mois)' : 'Moyen terme (6–18 mois)')
+
+  const upside   = buyPrice && fairValue ? ((fairValue - buyPrice) / buyPrice * 100).toFixed(1) : null
+  const downside = stopLoss && p > 0 ? ((stopLoss - p) / p * 100).toFixed(1) : null
+
+  // Consensus : API en priorité, sinon calcul
+  const consensus = reco?.consensus ?? (
+    (!pe || pe < 12) && (margin ?? 0) > 8 ? 'ACHAT FORT'
+      : (!pe || pe < 18) ? 'ACHAT'
+      : (pe ?? 0) > 25 ? 'VENTE'
+      : 'NEUTRE'
+  )
+
+  const consColors: Record<string, { bg: string; text: string; border: string }> = {
+    'ACHAT FORT': { bg: 'bg-emerald-500', text: 'text-white', border: 'border-emerald-400' },
+    'ACHAT':      { bg: 'bg-brvm-green/90', text: 'text-white', border: 'border-brvm-green' },
+    'ALLÉGEMENT': { bg: 'bg-amber-500', text: 'text-white', border: 'border-amber-400' },
+    'NEUTRE':     { bg: 'bg-amber-400', text: 'text-white', border: 'border-amber-300' },
+    'VENTE':      { bg: 'bg-brvm-red', text: 'text-white', border: 'border-red-400' },
+  }
+  const cc = consColors[consensus] ?? consColors['NEUTRE']
+
+  // Thèse : API en priorité, sinon fallback calculé
+  const thesis = reco?.thesis?.bull?.map(t => t.body) ?? [
+    pe && pe < 15 ? `Valorisation décotée vs pairs (PER ${pe}× vs moyenne BRVM ~15×)` : `Positionnement sectoriel solide dans un marché UEMOA en croissance structurelle`,
+    extras?.dividend_yield ? `Rendement dividendaire attractif à ${extras.dividend_yield}%, supérieur au sans-risque UEMOA (~6%)` : `Capacité de distribution de dividendes confirmée sur les 5 derniers exercices`,
+    details?.net_margin_pct && details.net_margin_pct > 8 ? `Marges nettes de ${details.net_margin_pct}% démontrant un avantage concurrentiel durable` : `Amélioration continue des marges opérationnelles`,
+    `Bénéficiaire de la croissance démographique et de l'urbanisation accélérée en Afrique de l'Ouest`,
+  ]
+
+  const risks = reco?.thesis?.risk?.map(t => t.body) ?? [
+    `Risque de liquidité : flottant de ${details?.free_float_pct ?? '—'}% — positions importantes difficiles à liquider rapidement`,
+    `Risque de change : exposition aux devises des pays hors zone CFA pour les importations`,
+    `Risque de concentration sectorielle et de dépendance aux matières premières agricoles régionales`,
+    `Risque de gouvernance : actionnariat concentré pouvant limiter l'influence des minoritaires`,
+  ]
+
+  const exitPoints = reco?.thesis?.exit?.map(t => t.body) ?? [
+    `Vendre si l'objectif de ${fmtP(fairValue)} FCFA est atteint (+${upside}%) — prendre les profits totalement ou partiellement`,
+    `Couper si le cours casse le stop loss à ${fmtP(stopLoss)} FCFA — limiter la perte à ${downside}% maximum`,
+    `Réviser la position si les résultats S2 2026 sont inférieurs de plus de 15% aux estimations`,
+    `Sortir si le PER dépasse 22× sans amélioration des perspectives de croissance`,
+  ]
+
+  const recoColors: Record<string, string> = {
+    'ACHAT FORT': 'text-emerald-600 bg-emerald-50',
+    'ACHAT': 'text-brvm-green bg-emerald-50/70',
+    'ALLÉGEMENT': 'text-amber-600 bg-amber-50',
+    'NEUTRE': 'text-amber-600 bg-amber-50',
+    'VENTE': 'text-brvm-red bg-red-50',
+  }
+
+  // Price range visual
+  const rangeMin  = stopLoss ?? p * 0.85
+  const rangeMax  = fairValue ?? p * 1.25
+  const rangeSpan = rangeMax - rangeMin
+  const pos_pct   = rangeSpan > 0 ? ((p - rangeMin) / rangeSpan * 100).toFixed(1) : '50'
+  const buy_pct   = rangeSpan > 0 && buyPrice ? ((buyPrice - rangeMin) / rangeSpan * 100).toFixed(1) : '45'
+
+  if (loading) {
+    return (
+      <div className="p-5 space-y-4">
+        {[1,2,3].map(i => <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" />)}
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-5 space-y-5">
+
+      {/* Consensus + horizon */}
+      <div className="flex items-start gap-4 flex-wrap">
+        <div className={`flex flex-col items-center justify-center w-32 h-24 rounded-2xl border-2 ${cc.bg} ${cc.border} ${cc.text} flex-shrink-0`}>
+          <p className="text-[10px] opacity-80 uppercase tracking-wider">Consensus</p>
+          <p className="text-lg font-black">{consensus}</p>
+          <p className="text-[10px] opacity-75">Afrivest Research</p>
+        </div>
+        <div className="flex-1 space-y-2 min-w-[200px]">
+          <div className="flex gap-3 flex-wrap">
+            <div className="bg-slate-50 rounded-xl border border-brvm-border px-3 py-2">
+              <p className="text-[10px] text-brvm-muted">Horizon</p>
+              <p className="text-xs font-semibold text-brvm-text">{horizon}</p>
+            </div>
+            <div className="bg-slate-50 rounded-xl border border-brvm-border px-3 py-2">
+              <p className="text-[10px] text-brvm-muted">Potentiel</p>
+              <p className="text-xs font-semibold text-brvm-green">+{upside ?? '—'}%</p>
+            </div>
+            <div className="bg-slate-50 rounded-xl border border-brvm-border px-3 py-2">
+              <p className="text-[10px] text-brvm-muted">Stop loss</p>
+              <p className="text-xs font-semibold text-brvm-red">{downside ?? '—'}%</p>
+            </div>
+          </div>
+          {reco?.methodology && (
+            <p className="text-[10px] text-brvm-muted">{reco.methodology}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Price range visual */}
+      {p > 0 && (
+        <div className="bg-slate-50 rounded-xl border border-brvm-border p-4">
+          <p className="text-xs font-bold text-brvm-text mb-4">Fourchette de prix — Vue d'ensemble</p>
+          <div className="relative h-8 mx-4 mb-6">
+            <div className="absolute inset-y-3 left-0 right-0 bg-slate-200 rounded-full" />
+            {buyPrice && fairValue && (
+              <div className="absolute inset-y-3 bg-brvm-green/20 rounded-full"
+                style={{ left: `${buy_pct}%`, right: `${(100 - Number(pos_pct))}%` }} />
+            )}
+            {[
+              { pct: 0,              label: `Stop\n${fmtP(stopLoss)} F`,  color: 'bg-brvm-red',   textColor: 'text-brvm-red' },
+              { pct: Number(buy_pct),label: `Achat\n${fmtP(buyPrice)} F`, color: 'bg-brvm-green', textColor: 'text-brvm-green' },
+              { pct: Number(pos_pct),label: `Actuel\n${fmtP(p)} F`,       color: 'bg-blue-500',   textColor: 'text-blue-600' },
+              { pct: 100,            label: `Objectif\n${fmtP(fairValue)} F`, color: 'bg-amber-400', textColor: 'text-amber-600' },
+            ].map((m, i) => (
+              <div key={i} className="absolute top-0 bottom-0 flex flex-col items-center" style={{ left: `${m.pct}%`, transform: 'translateX(-50%)' }}>
+                <div className={`w-3 h-8 rounded-full ${m.color} flex-shrink-0`} />
+                <div className={`text-center mt-1 text-[9px] font-bold leading-tight ${m.textColor} whitespace-pre`}>{m.label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { label: 'Stop loss',      value: `${fmtP(stopLoss)} FCFA`,  sub: `${downside}% de risque`,         color: 'text-brvm-red' },
+              { label: "Prix d'achat",   value: `${fmtP(buyPrice)} FCFA`,  sub: "Zone d'entrée conseillée",        color: 'text-brvm-green' },
+              { label: 'Cours actuel',   value: `${fmtP(p)} FCFA`,         sub: 'Dernière séance',                 color: 'text-blue-600' },
+              { label: 'Objectif 12m',   value: `${fmtP(fairValue)} FCFA`, sub: `+${upside}% de potentiel`,        color: 'text-amber-600' },
+            ].map(s => (
+              <div key={s.label} className="bg-white rounded-lg border border-brvm-border p-2.5">
+                <p className="text-[10px] text-brvm-muted">{s.label}</p>
+                <p className={`text-xs font-bold font-mono ${s.color}`}>{s.value}</p>
+                <p className="text-[10px] text-brvm-muted">{s.sub}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Thèse + risques */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-slate-50 rounded-xl border border-brvm-border p-4">
+          <p className="text-xs font-bold text-brvm-text mb-3">📈 Thèse d'investissement</p>
+          <ul className="space-y-2">
+            {thesis.map((t, i) => (
+              <li key={i} className="flex gap-2 text-[11px] text-brvm-subtext">
+                <span className="text-brvm-green font-bold flex-shrink-0">✓</span>{t}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="bg-slate-50 rounded-xl border border-brvm-border p-4">
+          <p className="text-xs font-bold text-brvm-text mb-3">⚠ Facteurs de risque</p>
+          <ul className="space-y-2">
+            {risks.map((r, i) => (
+              <li key={i} className="flex gap-2 text-[11px] text-brvm-subtext">
+                <span className="text-brvm-red font-bold flex-shrink-0">✗</span>{r}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Quand vendre */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <p className="text-xs font-bold text-amber-800 mb-2">🎯 Quand prendre vos profits / couper votre position</p>
+        <ul className="space-y-1.5">
+          {exitPoints.map((s, i) => (
+            <li key={i} className="flex gap-2 text-[11px] text-amber-700">
+              <span className="flex-shrink-0">{i === 0 ? '💰' : i === 1 ? '🛑' : i === 2 ? '📊' : '📉'}</span>{s}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Analyst table */}
+      {analysts.length > 0 && (
+        <div className="bg-slate-50 rounded-xl border border-brvm-border p-4">
+          <p className="text-xs font-bold text-brvm-text mb-3">Recommandations des analystes</p>
+          <table className="w-full text-xs">
+            <thead><tr className="text-brvm-muted border-b border-brvm-border">
+              {['Établissement', 'Analyste', 'Recommandation', 'Objectif'].map(h => (
+                <th key={h} className="text-left py-1.5 pr-3 font-semibold">{h}</th>
+              ))}
+            </tr></thead>
+            <tbody className="divide-y divide-brvm-border">
+              {analysts.map(a => (
+                <tr key={a.id} className="text-brvm-subtext">
+                  <td className="py-2 pr-3 font-semibold text-brvm-text">{a.firm}</td>
+                  <td className="py-2 pr-3">{a.analystName ?? '—'}</td>
+                  <td className="py-2 pr-3">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${recoColors[a.consensus] ?? 'text-slate-600 bg-slate-100'}`}>
+                      {a.consensus}
+                    </span>
+                  </td>
+                  <td className="py-2 font-mono font-semibold text-brvm-text">
+                    {a.targetPrice ? `${Math.round(a.targetPrice).toLocaleString('fr-FR')} F` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FA PANEL — Analyse Fondamentale
+══════════════════════════════════════════════════════════════ */
+interface FaPanelProps {
+  company:      Company | null
+  ticker:       string
+  fundamentals: FundamentalsData | null
+}
+
+function FaPanel({ company, ticker, fundamentals }: FaPanelProps) {
+  const [showCA,     setShowCA]     = useState(true)
+  const [showRN,     setShowRN]     = useState(true)
+  const [showMargin, setShowMargin] = useState(true)
+  const [chartType,  setChartType]  = useState<'bar' | 'line'>('bar')
+
+  const cs = { fontSize: 11, border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }
+
+  const SH_HEX: Record<Shareholder['type'], string> = {
+    institutionnel: '#3b82f6', etat: '#f59e0b', fondateur: '#a855f7', public: '#10b981',
+  }
+  const SH_LABEL: Record<Shareholder['type'], string> = {
+    institutionnel: 'Institutionnel', etat: 'État / Para-étatique',
+    fondateur: 'Fondateur / Famille', public: 'Flottant public',
+  }
+
+  /* ── Tous les hooks AVANT tout return conditionnel (règle des Hooks React) ── */
+  const hist = useMemo(
+    () => (fundamentals ? [...fundamentals.history].sort((a, b) => a.year - b.year) : []),
+    [fundamentals]
+  )
+
+  const combinedData = useMemo(() =>
+    hist.map(h => ({
+      year:   h.year === 2025 ? '2025e' : String(h.year),
+      ca:     Math.round(h.revenue_m_fcfa    / 100) / 10,
+      rn:     Math.round(h.net_income_m_fcfa / 100) / 10,
+      ebitda: Math.round(h.ebitda_m_fcfa     / 100) / 10,
+      margin: h.revenue_m_fcfa > 0
+        ? Math.round(h.net_income_m_fcfa / h.revenue_m_fcfa * 1000) / 10 : null,
+      eps:    h.eps_fcfa,
+      per:    h.pe_ratio > 0 ? h.pe_ratio : null,
+      divRaw: h.dividend_per_share_fcfa > 0 ? h.dividend_per_share_fcfa : null,
+    })),
+    [hist]
+  )
+
+  const perHistory = useMemo(() =>
+    hist.filter(h => h.pe_ratio > 0).map(h => ({ year: String(h.year), value: h.pe_ratio })),
+    [hist]
+  )
+
+  const dividendChartData = useMemo(() => {
+    const fromHistory = hist
+      .filter(h => h.dividend_per_share_fcfa > 0)
+      .map(h => ({ year: String(h.year), value: h.dividend_per_share_fcfa }))
+    if (fromHistory.length > 0) return fromHistory
+    return (fundamentals?.dividends ?? [])
+      .slice()
+      .sort((a, b) => a.year - b.year)
+      .map(d => ({ year: String(d.year), value: d.amount_fcfa }))
+  }, [hist, fundamentals])
+
+  const hasFinancials = combinedData.length > 0
+
+  const caption = [
+    showCA && showRN && "La comparaison CA / Résultat net révèle l'évolution des marges dans le temps.",
+    showMargin && "La marge nette (axe droit) mesure l'efficacité à convertir le CA en profit.",
+    !showCA && !showRN && 'Activez des séries ci-dessus pour les afficher.',
+  ].filter(Boolean).join(' ')
+
+  /* ── Empty state (après tous les hooks) ── */
+  if (!fundamentals) {
+    return (
+      <div className="p-10 flex flex-col items-center justify-center gap-3 text-center">
+        <Building2 size={32} className="text-brvm-border" />
+        <p className="text-sm font-semibold text-brvm-text">Données fondamentales non disponibles</p>
+        <p className="text-[11px] text-brvm-muted max-w-xs leading-relaxed">
+          L'analyse fondamentale de <span className="font-semibold">{ticker}</span> sera disponible
+          lorsque le backend sera connecté à l'endpoint{' '}
+          <code className="bg-slate-100 px-1 rounded">/api/v1/stocks/{ticker}/fundamentals</code>.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-5 space-y-6">
+
+      {/* ══ PRÉSENTATION ══ */}
+      <div className="rounded-xl border border-brvm-border overflow-hidden">
+        <div className="bg-brvm-green/8 border-b border-brvm-border px-4 py-2.5 flex items-center gap-2">
+          <Building2 size={14} className="text-brvm-green" />
+          <span className="text-xs font-bold text-brvm-text uppercase tracking-wider">Présentation de l'entreprise</span>
+        </div>
+        <div className="bg-white p-4 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-12 h-12 rounded-xl border border-brvm-border bg-gradient-to-br from-brvm-green/10 to-brvm-green/5 flex items-center justify-center flex-shrink-0">
+              <span className="text-[10px] font-black text-brvm-green tracking-tight">{ticker}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                <p className="text-sm font-bold text-brvm-text leading-tight">{company?.name ?? ticker}</p>
+                {company?.country && (
+                  <span className="text-[10px] font-semibold text-brvm-muted bg-slate-100 px-1.5 py-0.5 rounded">{company.country}</span>
+                )}
+              </div>
+              <p className="text-[11px] text-brvm-muted">{company?.sector ?? '—'}</p>
+            </div>
+            {fundamentals.ceo && (
+              <div className="text-right flex-shrink-0 bg-slate-50 rounded-lg px-3 py-2 border border-brvm-border">
+                <p className="text-[9px] text-brvm-muted uppercase tracking-wider">{fundamentals.ceo_title ?? 'Directeur Général'}</p>
+                <p className="text-[11px] font-semibold text-brvm-text mt-0.5">{fundamentals.ceo}</p>
+              </div>
+            )}
+          </div>
+          {company?.description && (
+            <div className="bg-slate-50 rounded-lg border border-brvm-border/60 p-3.5">
+              <p className="text-[11.5px] text-brvm-subtext leading-relaxed">{company.description}</p>
+            </div>
+          )}
+          {fundamentals.activities.length > 0 && (
+            <div>
+              <p className="text-[10px] text-brvm-muted uppercase tracking-wider mb-2 font-semibold">Activités principales</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-4">
+                {fundamentals.activities.map((act, i) => (
+                  <div key={i} className="flex items-start gap-2 text-[11px] text-brvm-subtext">
+                    <span className="w-1.5 h-1.5 rounded-full bg-brvm-green flex-shrink-0 mt-1.5" />
+                    {act}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="border-t border-brvm-border pt-3 flex gap-4 flex-wrap">
+            {fundamentals.founded && (
+              <div><p className="text-[9px] text-brvm-muted uppercase tracking-wider mb-0.5">Fondée en</p><p className="text-[11px] font-semibold text-brvm-text">{fundamentals.founded}</p></div>
+            )}
+            {fundamentals.employees && (
+              <div><p className="text-[9px] text-brvm-muted uppercase tracking-wider mb-0.5">Effectif</p><p className="text-[11px] font-semibold text-brvm-text">{fundamentals.employees.toLocaleString('fr-FR')} employés</p></div>
+            )}
+            {fundamentals.free_float_pct != null && (
+              <div><p className="text-[9px] text-brvm-muted uppercase tracking-wider mb-0.5">Flottant</p><p className="text-[11px] font-semibold text-brvm-text">{fundamentals.free_float_pct}%</p></div>
+            )}
+            {fundamentals.net_margin_pct != null && (
+              <div><p className="text-[9px] text-brvm-muted uppercase tracking-wider mb-0.5">Marge nette</p><p className="text-[11px] font-semibold text-brvm-green">{fundamentals.net_margin_pct}%</p></div>
+            )}
+            {fundamentals.website && (
+              <div>
+                <p className="text-[9px] text-brvm-muted uppercase tracking-wider mb-0.5">Site web</p>
+                <a href={`https://${fundamentals.website}`} target="_blank" rel="noopener noreferrer" className="text-[11px] font-semibold text-blue-500 hover:underline">{fundamentals.website}</a>
+              </div>
+            )}
+          </div>
+          {fundamentals.certifications.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {fundamentals.certifications.map(cert => (
+                <span key={cert} className="bg-blue-50 text-blue-700 text-[10px] font-medium px-2 py-0.5 rounded-full border border-blue-100">{cert}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Métriques clés ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {([
+          { label: 'Capitalisation',  value: fundamentals.market_cap_fcfa    != null ? `${(fundamentals.market_cap_fcfa / 1e9).toFixed(0)} Md FCFA` : '—', sub: 'Valeur boursière totale' },
+          { label: 'PER',             value: fundamentals.pe_ratio            != null ? `${fundamentals.pe_ratio.toFixed(1)}×` : '—', sub: 'Prix / Bénéfice par action' },
+          { label: 'Rendement div.',  value: fundamentals.dividend_yield_pct  != null ? `${fundamentals.dividend_yield_pct}%` : '—', sub: 'Dividende annuel / Cours' },
+          { label: "Chiffre d'aff.", value: fundamentals.revenue_bn_fcfa     != null ? `${fundamentals.revenue_bn_fcfa} Md FCFA` : '—', sub: 'Revenus annuels 2025e' },
+          { label: 'Résultat net',    value: fundamentals.net_income_bn_fcfa  != null ? `${fundamentals.net_income_bn_fcfa} Md FCFA` : '—', sub: 'Bénéfice net 2025e' },
+          { label: 'Marge nette',     value: fundamentals.net_margin_pct      != null ? `${fundamentals.net_margin_pct}%` : '—', sub: "Résultat NET / Chiffre d'aff." },
+        ] as { label: string; value: string; sub: string }[]).map(m => (
+          <div key={m.label} className="bg-slate-50 rounded-xl p-3.5 border border-brvm-border">
+            <p className="text-[10px] text-brvm-muted uppercase tracking-wider mb-1">{m.label}</p>
+            <p className="text-sm font-bold text-brvm-text font-mono">{m.value}</p>
+            <p className="text-[10px] text-brvm-muted mt-0.5">{m.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ══ GRAPHIQUE INTERACTIF ══ */}
+      {hasFinancials && (
+        <div className="bg-slate-50 rounded-xl border border-brvm-border p-4">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <p className="text-xs font-bold text-brvm-text mr-1">Évolution financière</p>
+            {([
+              { key: 'ca',     label: "Chiffre d'aff.", active: showCA,     set: setShowCA,     color: '#10b981' },
+              { key: 'rn',     label: 'Résultat net',   active: showRN,     set: setShowRN,     color: '#6366f1' },
+              { key: 'margin', label: 'Marge nette %',  active: showMargin, set: setShowMargin, color: '#ec4899' },
+            ] as { key: string; label: string; active: boolean; set: (fn: (v: boolean) => boolean) => void; color: string }[])
+              .map(({ key, label, active, set, color }) => (
+                <button key={key} onClick={() => set(v => !v)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all"
+                  style={active ? { backgroundColor: color, borderColor: color, color: '#fff' }
+                    : { backgroundColor: '#fff', borderColor: '#e2e8f0', color: '#94a3b8' }}>
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: active ? 'rgba(255,255,255,0.75)' : color }} />
+                  {label}
+                </button>
+              ))}
+            <div className="ml-auto flex gap-0.5 bg-white border border-brvm-border rounded-lg p-0.5">
+              {(['bar', 'line'] as const).map(t => (
+                <button key={t} onClick={() => setChartType(t)}
+                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${chartType === t ? 'bg-brvm-green/10 text-brvm-green' : 'text-brvm-muted hover:text-brvm-text'}`}>
+                  {t === 'bar' ? '▌ Barres' : '╱ Courbes'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {caption && <p className="text-[10px] text-brvm-muted italic mb-3 leading-relaxed">→ {caption}</p>}
+          <ResponsiveContainer width="100%" height={250}>
+            <ComposedChart data={combinedData} margin={{ top: 20, right: showMargin ? 40 : 4, left: -14, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e8ecf0" />
+              <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} width={44} tickFormatter={(v: number) => `${v}`} />
+              {showMargin && (
+                <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false}
+                  tick={{ fontSize: 10, fill: '#ec4899' }} width={32} tickFormatter={(v: number) => `${v}%`} domain={[0, 'auto']} />
+              )}
+              <Tooltip contentStyle={cs} formatter={(value: number, name: string) =>
+                name === 'Marge %' ? [`${value}%`, name] : [`${value} Md FCFA`, name]} />
+              <Legend wrapperStyle={{ fontSize: 10, paddingTop: 6 }} />
+              {showCA && (chartType === 'bar'
+                ? <Bar yAxisId="left" dataKey="ca" name="Chiffre d'aff." fill="#10b981" radius={[3,3,0,0]} />
+                : <Line yAxisId="left" type="monotone" dataKey="ca" name="Chiffre d'aff." stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 0, fill: '#10b981' }} activeDot={{ r: 5 }} connectNulls />
+              )}
+              {showRN && (chartType === 'bar'
+                ? (
+                  <Bar yAxisId="left" dataKey="rn" name="Résultat net" fill="#6366f1" radius={[3,3,0,0]}>
+                    <LabelList dataKey="rn" position="top" style={{ fontSize: 10, fontWeight: 700, fill: '#6366f1' }} formatter={(v: number) => v != null ? `${v}` : ''} />
+                  </Bar>
+                ) : (
+                  <Line yAxisId="left" type="monotone" dataKey="rn" name="Résultat net" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 4, strokeWidth: 2, stroke: '#fff', fill: '#6366f1' }} activeDot={{ r: 6 }} connectNulls>
+                    <LabelList dataKey="rn" position="top" style={{ fontSize: 10, fontWeight: 700, fill: '#6366f1' }} formatter={(v: number) => v != null ? `${v}` : ''} />
+                  </Line>
+                )
+              )}
+              {showMargin && (
+                <Line yAxisId="right" type="monotone" dataKey="margin" name="Marge %" stroke="#ec4899" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 3, strokeWidth: 0, fill: '#ec4899' }} activeDot={{ r: 5 }} connectNulls />
+              )}
+            </ComposedChart>
+          </ResponsiveContainer>
+
+          {/* Tableau comparatif 5 ans */}
+          {(() => {
+            const rows = combinedData.map((d, i) => {
+              const prev      = i > 0 ? combinedData[i - 1] : null
+              const caM       = d.ca     != null ? Math.round(d.ca     * 1000) : null
+              const rnM       = d.rn     != null ? Math.round(d.rn     * 1000) : null
+              const caGrowth  = (prev?.ca && d.ca) ? ((d.ca - prev.ca) / prev.ca * 100) : null
+              const rnGrowth  = (prev?.rn && d.rn) ? ((d.rn - prev.rn) / prev.rn * 100) : null
+              const netMarg   = (caM && rnM && caM > 0) ? Math.round(rnM / caM * 1000) / 10 : null
+              const divVal = d.divRaw ?? dividendChartData.find(p => p.year === d.year.replace('e', ''))?.value ?? null
+              return { year: d.year, caM, rnM, caGrowth, rnGrowth, netMarg, per: d.per, divVal, bnpa: d.eps }
+            })
+            const years   = rows.map(r => r.year)
+            const lastIdx = years.length - 1
+
+            const tableRows: { label: string; values: string[]; bold?: boolean; isGrowth?: boolean; isMeta?: boolean }[] = [
+              { label: "Chiffre d'affaires", bold: true,     values: rows.map(r => r.caM    != null ? r.caM.toLocaleString('fr-FR') : '—') },
+              { label: 'Croissance CA',      isGrowth: true, values: rows.map(r => r.caGrowth != null ? `${r.caGrowth > 0 ? '+' : ''}${r.caGrowth.toFixed(1)}%` : '—') },
+              { label: 'Résultat net',       bold: true,     values: rows.map(r => r.rnM    != null ? r.rnM.toLocaleString('fr-FR') : '—') },
+              { label: 'Marge nette',        isMeta: true,   values: rows.map(r => r.netMarg  != null ? `${r.netMarg}%`  : '—') },
+              { label: 'Croissance RN',      isGrowth: true, values: rows.map(r => r.rnGrowth != null ? `${r.rnGrowth > 0 ? '+' : ''}${r.rnGrowth.toFixed(1)}%` : '—') },
+              { label: 'BPA (FCFA/action)',  values: rows.map(r => r.bnpa   != null ? r.bnpa.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) : '—') },
+              { label: 'PER',                values: rows.map(r => r.per    != null ? `${r.per.toFixed(1)}×`  : '—') },
+              { label: 'Dividende/action',   values: rows.map(r => r.divVal != null ? r.divVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) : '—') },
+            ]
+            const groups: { rows: typeof tableRows; color: string }[] = [
+              { rows: tableRows.slice(0, 4), color: '#059669' }, // CA + RN + leurs sous-lignes
+              { rows: tableRows.slice(4),    color: '#6366f1' }, // BPA, PER, Dividende
+            ]
+
+            return (
+              <div className="mt-5 pt-4 border-t border-brvm-border">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] text-brvm-muted">En millions de FCFA sauf BPA, Dividende (FCFA/action) et PER (×)</p>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded border border-emerald-200">{years[lastIdx]} = estimé</span>
+                </div>
+                <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                  <table className="w-full min-w-[520px] border-collapse text-xs">
+                    <thead>
+                      <tr>
+                        <th className="w-44 py-3 px-4 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-200" />
+                        {years.map((yr, j) => (
+                          <th key={yr} className="py-3 px-4 text-right border-b"
+                            style={{ background: j === lastIdx ? '#f0fdf4' : '#059669', color: j === lastIdx ? '#059669' : '#fff', fontWeight: 700, fontSize: 12, borderColor: j === lastIdx ? '#bbf7d0' : '#047857', borderBottomWidth: 1 }}>
+                            {yr}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groups.map((grp, gi) => grp.rows.map((row, ri) => {
+                        const isFirstInGroup = ri === 0
+                        const isGrowthRow    = row.isGrowth
+                        const isMetaRow      = (row as { isMeta?: boolean }).isMeta
+                        const isSubRow       = isGrowthRow || isMetaRow
+                        return (
+                          <tr key={row.label} style={{ backgroundColor: isSubRow ? '#fafafa' : '#ffffff', borderTop: isFirstInGroup && gi > 0 ? '2px solid #e2e8f0' : undefined }}>
+                            <td className="py-2.5 px-4 border-b border-slate-100"
+                              style={{ borderLeft: `3px solid ${isSubRow ? 'transparent' : grp.color}` }}>
+                              <span className={`text-[11px] ${isSubRow ? 'text-slate-400 pl-2' : 'text-slate-700'}`}>{row.label}</span>
+                            </td>
+                            {row.values.map((val, j) => {
+                              const isEst = j === lastIdx
+                              let color = isSubRow ? '#94a3b8' : '#0f172a'
+                              if (isGrowthRow && val !== '—') color = val.startsWith('+') ? '#059669' : '#dc2626'
+                              return (
+                                <td key={j} className="py-2.5 px-4 text-right border-b border-slate-100 font-mono"
+                                  style={{ color, fontWeight: 400, fontSize: 11, background: isEst ? 'rgba(5,150,105,0.04)' : undefined }}>
+                                  {isGrowthRow && val !== '—'
+                                    ? <span>{val.startsWith('+') ? '▲ ' : '▼ '}{val.replace(/^[+-]/, '')}</span>
+                                    : val}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        )
+                      }))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
+      {/* ── PER Evolution ── */}
+      {perHistory.length > 0 && (
+        <div className="bg-slate-50 rounded-xl border border-brvm-border p-4">
+          <div className="flex items-start justify-between mb-1">
+            <p className="text-xs font-bold text-brvm-text">Évolution du P/E Ratio</p>
+            <span className="text-[10px] text-brvm-muted bg-white border border-brvm-border px-2 py-0.5 rounded-full">
+              Actuel : {(perHistory[perHistory.length - 1]?.value ?? fundamentals.pe_ratio)?.toFixed(1)}×
+            </span>
+          </div>
+          <p className="text-[10px] text-brvm-muted mb-3 leading-relaxed">
+            Le PER (Price/Earnings) indique combien les investisseurs paient pour 1 FCFA de bénéfice annuel.
+            Un PER en hausse signale une revalorisation du titre ou une compression des marges.
+            Un PER en baisse peut indiquer une décote ou une amélioration de la rentabilité. Référence BRVM : 10–20×.
+          </p>
+          <ResponsiveContainer width="100%" height={150}>
+            <LineChart data={perHistory} margin={{ top: 4, right: 8, left: -14, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e8ecf0" />
+              <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={36} domain={['auto', 'auto']} />
+              <Tooltip contentStyle={cs} formatter={(v: number) => [`${v.toFixed(1)}×`, 'PER']} />
+              <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2.5}
+                dot={{ fill: '#3b82f6', r: 4, strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 0 }} />
+            </LineChart>
+          </ResponsiveContainer>
+          <div className="flex gap-5 mt-2">
+            {[{ l: '< 10×', t: 'Sous-évalué', c: 'text-brvm-green' }, { l: '10–20×', t: 'Juste valeur', c: 'text-amber-600' }, { l: '> 20×', t: 'Surévalué', c: 'text-brvm-red' }]
+              .map(({ l, t, c }) => <div key={l} className="text-[10px]"><span className={`font-bold ${c}`}>{l}</span><span className="text-brvm-muted ml-1">{t}</span></div>)}
+          </div>
+        </div>
+      )}
+
+      {/* ── Actionnariat + Dividendes ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        {fundamentals.shareholders.length > 0 && (
+          <div className="bg-slate-50 rounded-xl border border-brvm-border p-4">
+            <p className="text-xs font-bold text-brvm-text mb-3">Actionnariat</p>
+            <div className="flex items-center gap-3">
+              <PieChart width={130} height={120}>
+                <Pie data={fundamentals.shareholders} dataKey="pct" nameKey="name" cx="50%" cy="50%"
+                  innerRadius={32} outerRadius={58} strokeWidth={2} stroke="#f8fafc">
+                  {fundamentals.shareholders.map(sh => <Cell key={sh.name} fill={SH_HEX[sh.type]} />)}
+                </Pie>
+                <Tooltip contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}
+                  formatter={(v: number, _: string, props: { payload?: { name?: string } }) => [`${v}%`, props.payload?.name ?? '']} />
+              </PieChart>
+              <div className="flex-1 space-y-2 min-w-0">
+                {fundamentals.shareholders.map((sh, i) => (
+                  <div key={i}>
+                    <div className="flex justify-between mb-0.5">
+                      <p className="text-[11px] text-brvm-text truncate max-w-[110px]">{sh.name}</p>
+                      <span className="text-[11px] font-bold font-mono text-brvm-text ml-1">{sh.pct}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-1.5">
+                      <div className="h-1.5 rounded-full" style={{ width: `${Math.min(sh.pct, 100)}%`, backgroundColor: SH_HEX[sh.type] }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-brvm-border grid grid-cols-2 gap-1">
+              {(Object.keys(SH_LABEL) as Shareholder['type'][]).map(t => (
+                <div key={t} className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: SH_HEX[t] }} />
+                  <span className="text-[10px] text-brvm-muted">{SH_LABEL[t]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="bg-slate-50 rounded-xl border border-brvm-border p-4 space-y-4">
+          <div>
+            <p className="text-xs font-bold text-brvm-text mb-1">Politique de dividendes</p>
+            <p className="text-[10px] text-brvm-muted">Montant brut par action versé annuellement (FCFA)</p>
+          </div>
+          {dividendChartData.length > 0 && (() => {
+            const lastDiv = dividendChartData[dividendChartData.length - 1]?.value ?? 0
+            const prevDiv = dividendChartData[dividendChartData.length - 2]?.value ?? lastDiv
+            const divGrowth = prevDiv > 0 ? ((lastDiv - prevDiv) / prevDiv * 100).toFixed(1) : null
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { label: 'Dernier dividende', value: `${lastDiv.toLocaleString('fr-FR')} F`, color: 'text-brvm-green' },
+                  { label: 'Rendement', value: fundamentals.dividend_yield_pct ? `${fundamentals.dividend_yield_pct}%` : '—', color: 'text-brvm-green' },
+                  { label: 'Croissance', value: divGrowth ? `${Number(divGrowth) >= 0 ? '+' : ''}${divGrowth}%` : '—', color: Number(divGrowth ?? 0) >= 0 ? 'text-brvm-green' : 'text-brvm-red' },
+                  { label: 'Flottant', value: fundamentals.free_float_pct != null ? `${fundamentals.free_float_pct}%` : '—', color: 'text-amber-600' },
+                ].map(k => (
+                  <div key={k.label} className="bg-white rounded-lg border border-brvm-border p-2.5 text-center">
+                    <p className="text-[10px] text-brvm-muted mb-0.5">{k.label}</p>
+                    <p className={`text-sm font-bold font-mono ${k.color}`}>{k.value}</p>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+          {dividendChartData.length > 1 ? (
+            <ResponsiveContainer width="100%" height={110}>
+              <BarChart data={dividendChartData} barSize={22} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e8ecf0" />
+                <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={44} />
+                <Tooltip contentStyle={cs} formatter={(v: number) => [`${v.toLocaleString('fr-FR')} FCFA`, 'Dividende/action']} cursor={{ fill: '#f0fdf4' }} />
+                <Bar dataKey="value" fill="#10b981" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-brvm-muted text-xs py-3 text-center">Aucun dividende enregistré</p>
+          )}
+          {fundamentals.dividends.length > 0 && (
+            <div className="border-t border-brvm-border pt-3">
+              <p className="text-[10px] text-brvm-muted uppercase tracking-wider mb-2">Détail des versements</p>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-brvm-muted border-b border-brvm-border">
+                    <th className="text-left py-1 pr-3 font-semibold">Exercice</th>
+                    <th className="text-left py-1 pr-3 font-semibold">Paiement</th>
+                    <th className="text-right py-1 font-semibold">Montant/action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-brvm-border">
+                  {[...fundamentals.dividends].sort((a, b) => b.year - a.year).map(d => (
+                    <tr key={d.year} className="text-brvm-subtext">
+                      <td className="py-1.5 pr-3 font-semibold text-brvm-text">{d.year}</td>
+                      <td className="py-1.5 pr-3">{new Date(d.payment_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                      <td className="py-1.5 text-right font-mono text-brvm-green font-bold">{Number(d.amount_fcfa).toLocaleString('fr-FR')} F</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {fundamentals.dividend_yield_pct && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 flex items-center gap-2">
+              <span className="text-brvm-green text-xs">📅</span>
+              <p className="text-[11px] text-brvm-subtext">
+                Prochain détachement estimé : <span className="font-semibold text-brvm-text">T2 2026</span>
+                {' — '}rendement annualisé <span className="font-semibold text-brvm-green">{fundamentals.dividend_yield_pct}%</span>
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
+
+/* ══════════════════════════════════════════════════════════════
    MAIN PAGE COMPONENT
 ══════════════════════════════════════════════════════════════ */
 export default function LiveChart() {
@@ -1018,7 +2249,7 @@ export default function LiveChart() {
   const [ticker,     setTicker]     = useState('UNXC')
   const [search,     setSearch]     = useState('')
   const [dropOpen,   setDropOpen]   = useState(false)
-  const [mainTab,    setMainTab]    = useState<'ta'|'fa'|'news'|'summary'|'reco'>('ta')
+  const [mainTab,    setMainTab]    = useState<'ta'|'fa'|'news'|'summary'|'reco'|'announcements'>('ta')
   const dropRef = useRef<HTMLDivElement>(null)
 
   /* ── Data state ── */
@@ -1031,6 +2262,11 @@ export default function LiveChart() {
   /* ── Indicator state ── */
   const [indicators,   setIndicators]   = useState<ActiveIndicator[]>([])
   const [activeOscTab, setActiveOscTab] = useState<string | null>(null)
+
+  /* ── Fundamental data state ── */
+  const [extras,      setExtras]      = useState<CompanyExtras | null>(null)
+  const [details,     setDetails]     = useState<CompanyFullDetail | null>(null)
+  const [fundamentals, setFundamentals] = useState<FundamentalsData | null>(null)
 
   /* ── Drawing state ── */
   const [drawTool,   setDrawTool]   = useState<DrawTool>('pointer')
@@ -1082,6 +2318,46 @@ export default function LiveChart() {
     fetch('/api/companies').then(r => r.json())
       .then(j => setCompanies(Array.isArray(j) ? j : (j.data ?? []))).catch(() => {})
   }, [])
+
+  /* ── Load fundamental data when ticker changes ── */
+  useEffect(() => {
+    const company = MOCK_COMPANIES.find(c => c.ticker === ticker)
+    if (!company) return
+    const id = company.id
+    setExtras(MOCK_EXTRAS[id] ?? null)
+    setDetails(COMPANY_DETAILS[id] ?? null)
+    setFundamentals(null)
+    fetch(`/api/v1/stocks/${ticker}/fundamentals`)
+      .then(r => r.ok ? r.json() : null)
+      .then((j: Partial<FundamentalsData> | null) => {
+        if (!j) { setFundamentals(null); return }
+        // Normalise tous les champs tableau au cas où l'API renvoie null/string
+        const norm: FundamentalsData = {
+          ticker:             j.ticker             ?? ticker,
+          market_cap_fcfa:    j.market_cap_fcfa    ?? null,
+          pe_ratio:           j.pe_ratio           ?? null,
+          dividend_yield_pct: j.dividend_yield_pct ?? null,
+          revenue_bn_fcfa:    j.revenue_bn_fcfa    ?? null,
+          net_income_bn_fcfa: j.net_income_bn_fcfa ?? null,
+          ebitda_bn_fcfa:     j.ebitda_bn_fcfa     ?? null,
+          net_margin_pct:     j.net_margin_pct     ?? null,
+          history:       Array.isArray(j.history)       ? j.history       : [],
+          activities:    Array.isArray(j.activities)    ? j.activities    : [],
+          certifications: Array.isArray(j.certifications) ? j.certifications : [],
+          shareholders:  Array.isArray(j.shareholders)  ? j.shareholders  : [],
+          dividends:     Array.isArray(j.dividends)     ? j.dividends     : [],
+          recent_news:   Array.isArray(j.recent_news)   ? j.recent_news   : [],
+          ceo:           j.ceo           ?? null,
+          ceo_title:     j.ceo_title     ?? null,
+          founded:       j.founded       ?? null,
+          employees:     j.employees     ?? null,
+          website:       j.website       ?? null,
+          free_float_pct: j.free_float_pct ?? null,
+        }
+        setFundamentals(norm.history.length > 0 || norm.ticker ? norm : null)
+      })
+      .catch(() => setFundamentals(null))
+  }, [ticker])
 
   /* ── Load history ── */
   const load = useCallback(async (t: string) => {
@@ -1782,11 +3058,12 @@ export default function LiveChart() {
       {/* ── Tab nav — standalone, outside the card ── */}
       {(() => {
         const tabs: { id: typeof mainTab; label: string; icon: React.ReactNode }[] = [
-          { id: 'ta',      label: 'Analyse Technique',    icon: <LineChart  size={15} /> },
-          { id: 'fa',      label: 'Analyse Fondamentale',  icon: <Building2  size={15} /> },
-          { id: 'news',    label: 'Dernières actualités',  icon: <Newspaper  size={15} /> },
-          { id: 'summary', label: 'Résumé rapide',        icon: <Zap        size={15} /> },
-          { id: 'reco',    label: 'Recommandations',      icon: <Target     size={15} /> },
+          { id: 'ta',            label: 'Analyse Technique',     icon: <LineChartIcon size={15} /> },
+          { id: 'fa',            label: 'Fondamentaux',           icon: <Building2     size={15} /> },
+          { id: 'news',          label: 'Actualités',             icon: <Newspaper     size={15} /> },
+          { id: 'announcements', label: 'Annonces & Rapports',    icon: <BarChart2     size={15} /> },
+          { id: 'summary',       label: 'Résumé',                 icon: <Zap           size={15} /> },
+          { id: 'reco',          label: 'Recommandations',        icon: <Target        size={15} /> },
         ]
         return (
           <div className="flex justify-center">
@@ -1911,198 +3188,53 @@ export default function LiveChart() {
 
         {/* ══ ANALYSE FONDAMENTALE ══ */}
         {mainTab === 'fa' && (
-          <div className="p-5 space-y-5">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                { label: 'Capitalisation', value: current ? `${(current * 1e6 / 1e9).toFixed(1)} Md FCFA` : '—', sub: 'Estimée' },
-                { label: 'PER', value: '12.4×', sub: 'Price / Earnings' },
-                { label: 'P/B', value: '1.8×', sub: 'Price / Book' },
-                { label: 'ROE', value: '14.2 %', sub: 'Return on Equity' },
-                { label: 'Marge nette', value: '8.6 %', sub: 'Résultat / CA' },
-                { label: 'Rendement div.', value: '3.4 %', sub: 'Dividende / Cours' },
-              ].map(m => (
-                <div key={m.label} className="bg-slate-50 rounded-xl p-4 border border-brvm-border">
-                  <p className="text-[10px] text-brvm-muted uppercase tracking-wider mb-1">{m.label}</p>
-                  <p className="text-lg font-bold text-brvm-text font-mono">{m.value}</p>
-                  <p className="text-[10px] text-brvm-muted mt-0.5">{m.sub}</p>
-                </div>
-              ))}
-            </div>
-            <div className="bg-slate-50 rounded-xl border border-brvm-border p-4">
-              <p className="text-xs font-bold text-brvm-text mb-3">Résultats annuels (Md FCFA)</p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead><tr className="text-brvm-muted border-b border-brvm-border">
-                    {['Exercice','Chiffre d\'affaires','EBITDA','Résultat net','BPA'].map(h => (
-                      <th key={h} className="text-left py-1.5 pr-4 font-semibold">{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody className="divide-y divide-brvm-border">
-                    {[
-                      { yr: '2023', ca: '48.2', ebitda: '12.1', rn: '4.2', bpa: '420' },
-                      { yr: '2024', ca: '52.7', ebitda: '13.8', rn: '4.9', bpa: '490' },
-                      { yr: '2025e', ca: '57.4', ebitda: '15.2', rn: '5.4', bpa: '540' },
-                    ].map(r => (
-                      <tr key={r.yr} className="text-brvm-subtext">
-                        <td className="py-2 pr-4 font-semibold text-brvm-text">{r.yr}</td>
-                        <td className="py-2 pr-4 font-mono">{r.ca}</td>
-                        <td className="py-2 pr-4 font-mono">{r.ebitda}</td>
-                        <td className="py-2 pr-4 font-mono text-brvm-green">{r.rn}</td>
-                        <td className="py-2 font-mono">{r.bpa}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+          <FaPanel
+            company={companies.find(c => c.ticker === ticker) ?? null}
+            ticker={ticker}
+            fundamentals={fundamentals}
+          />
         )}
 
         {/* ══ ACTUALITÉS ══ */}
         {mainTab === 'news' && (
-          <div className="p-5 space-y-3">
-            {[
-              { date: '06 mars 2026', title: `${companyName || ticker} : résultats annuels en hausse de 12%`, tag: 'Résultats', pos: true, body: 'Le groupe a publié des résultats annuels solides, portés par la croissance de ses activités principales et une maîtrise des coûts opérationnels.' },
-              { date: '28 fév. 2026', title: 'BRVM : les valeurs financières résistent à la volatilité régionale', tag: 'Marché', pos: null, body: 'Dans un contexte de volatilité sur les marchés ouest-africains, les valeurs du secteur financier ont démontré une résilience notable.' },
-              { date: '20 fév. 2026', title: `${ticker} : dividende de 450 FCFA par action annoncé`, tag: 'Dividende', pos: true, body: 'Le conseil d\'administration a approuvé la distribution d\'un dividende ordinaire en hausse par rapport à l\'exercice précédent.' },
-              { date: '14 fév. 2026', title: 'Perspectives économiques UEMOA 2026 : croissance attendue à 6.1%', tag: 'Macro', pos: null, body: 'La BCEAO maintient ses projections de croissance pour la zone UEMOA, soutenues par les investissements infrastructurels.' },
-              { date: '05 fév. 2026', title: `${ticker} : nomination d'un nouveau directeur général`, tag: 'Corporate', pos: null, body: 'Le groupe a annoncé la nomination d\'un nouveau directeur général, succédant au titulaire après 8 ans à la tête de l\'entreprise.' },
-            ].map((n, i) => (
-              <div key={i} className="flex gap-3 p-3 bg-slate-50 rounded-xl border border-brvm-border hover:border-brvm-green/40 transition-colors cursor-pointer">
-                <div className={`w-1 rounded-full flex-shrink-0 ${n.pos === true ? 'bg-brvm-green' : n.pos === false ? 'bg-brvm-red' : 'bg-brvm-muted'}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-brvm-muted font-semibold">{n.tag}</span>
-                    <span className="text-[10px] text-brvm-muted">{n.date}</span>
-                  </div>
-                  <p className="text-xs font-semibold text-brvm-text leading-snug">{n.title}</p>
-                  <p className="text-[11px] text-brvm-muted mt-1 leading-relaxed">{n.body}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <NewsPanel
+            ticker={ticker}
+          />
         )}
+
+        {/* ══ ANNONCES & RAPPORTS ══ */}
+        {mainTab === 'announcements' && (() => {
+          const company = MOCK_COMPANIES.find(c => c.ticker === ticker)
+          return (
+            <AnnouncementsPanel
+              ticker={ticker}
+              companyName={companyName}
+              companyId={company?.id ?? 0}
+            />
+          )
+        })()}
 
         {/* ══ RÉSUMÉ RAPIDE ══ */}
         {mainTab === 'summary' && (
-          <div className="p-5 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-slate-50 rounded-xl border border-brvm-border p-4 space-y-3">
-                <p className="text-xs font-bold text-brvm-text">Données de marché</p>
-                {[
-                  { label: 'Cours actuel',    value: `${fmtP(current)} FCFA` },
-                  { label: 'Variation jour',  value: dailyVar != null ? `${dailyVar >= 0 ? '+' : ''}${dailyVar.toFixed(2)} %` : '—', color: dailyVar != null ? (dailyVar >= 0 ? 'text-brvm-green' : 'text-brvm-red') : '' },
-                  { label: `Perf. ${PERIODS.find(p => p.value === period)?.label ?? period}`, value: periodVar != null ? `${periodVar >= 0 ? '+' : ''}${periodVar.toFixed(2)} %` : '—', color: periodVar != null ? (periodVar >= 0 ? 'text-brvm-green' : 'text-brvm-red') : '' },
-                  { label: 'Plus haut période', value: `${fmtP(high)} FCFA` },
-                  { label: 'Plus bas période',  value: `${fmtP(low)} FCFA` },
-                  { label: 'Volume total',     value: fmtV(totalVol) },
-                ].map(r => (
-                  <div key={r.label} className="flex justify-between items-center text-xs border-b border-brvm-border/50 pb-2 last:border-0 last:pb-0">
-                    <span className="text-brvm-muted">{r.label}</span>
-                    <span className={`font-semibold font-mono ${r.color ?? 'text-brvm-text'}`}>{r.value}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="bg-slate-50 rounded-xl border border-brvm-border p-4 space-y-3">
-                <p className="text-xs font-bold text-brvm-text">Signaux techniques</p>
-                {[
-                  { label: 'Tendance court terme', value: (periodVar ?? 0) >= 0 ? 'Haussière' : 'Baissière', color: (periodVar ?? 0) >= 0 ? 'text-brvm-green' : 'text-brvm-red' },
-                  { label: 'MM20 vs cours', value: 'Au-dessus', color: 'text-brvm-green' },
-                  { label: 'MM50 vs cours', value: 'Au-dessus', color: 'text-brvm-green' },
-                  { label: 'RSI(14) estimé', value: '58', color: 'text-brvm-subtext' },
-                  { label: 'Volume relatif', value: 'Normal', color: 'text-brvm-muted' },
-                  { label: 'Support clé', value: `${fmtP(low)} FCFA`, color: 'text-brvm-subtext' },
-                ].map(r => (
-                  <div key={r.label} className="flex justify-between items-center text-xs border-b border-brvm-border/50 pb-2 last:border-0 last:pb-0">
-                    <span className="text-brvm-muted">{r.label}</span>
-                    <span className={`font-semibold ${r.color}`}>{r.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="bg-slate-50 rounded-xl border border-brvm-border p-4">
-              <p className="text-xs font-bold text-brvm-text mb-2">Contexte</p>
-              <p className="text-xs text-brvm-subtext leading-relaxed">
-                {companyName || ticker} évolue dans un contexte de marché globalement favorable sur la BRVM.
-                Le titre affiche une performance {(periodVar ?? 0) >= 0 ? 'positive' : 'négative'} sur la période sélectionnée,
-                avec des volumes {totalVol > 50000 ? 'élevés' : 'modérés'} témoignant d'un intérêt {totalVol > 50000 ? 'soutenu' : 'limité'} des investisseurs.
-                Les indicateurs techniques de tendance restent globalement constructifs.
-              </p>
-            </div>
-          </div>
+          <SummaryPanel
+            company={companies.find(c => c.ticker === ticker) ?? null}
+            extras={extras}
+            details={details}
+            ticker={ticker}
+            currentPrice={current}
+            dailyVar={dailyVar}
+          />
         )}
 
         {/* ══ RECOMMANDATIONS ══ */}
         {mainTab === 'reco' && (
-          <div className="p-5 space-y-4">
-            {/* Consensus */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="bg-brvm-green/5 border border-brvm-green/20 rounded-xl p-5 flex flex-col items-center justify-center min-w-[140px]">
-                <p className="text-[10px] text-brvm-muted uppercase tracking-wider mb-2">Consensus</p>
-                <p className="text-2xl font-bold text-brvm-green">ACHAT</p>
-                <p className="text-xs text-brvm-muted mt-1">4 analystes</p>
-              </div>
-              <div className="flex-1 grid grid-cols-3 gap-3">
-                {[
-                  { label: 'Achat', count: 3, color: 'bg-brvm-green', pct: 75 },
-                  { label: 'Neutre', count: 1, color: 'bg-amber-400', pct: 25 },
-                  { label: 'Vente', count: 0, color: 'bg-brvm-red', pct: 0 },
-                ].map(r => (
-                  <div key={r.label} className="bg-slate-50 border border-brvm-border rounded-xl p-3 text-center">
-                    <p className="text-xs text-brvm-muted mb-2">{r.label}</p>
-                    <p className="text-xl font-bold text-brvm-text">{r.count}</p>
-                    <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${r.color}`} style={{ width: `${r.pct}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* Objectifs de cours */}
-            <div className="bg-slate-50 border border-brvm-border rounded-xl p-4">
-              <p className="text-xs font-bold text-brvm-text mb-3">Objectifs de cours (FCFA)</p>
-              <div className="flex items-center gap-4 mb-3">
-                <div className="text-center">
-                  <p className="text-[10px] text-brvm-muted">Bas</p>
-                  <p className="font-mono font-bold text-sm text-brvm-subtext">{fmtP(current ? current * 0.88 : null)}</p>
-                </div>
-                <div className="flex-1 relative h-2 bg-slate-200 rounded-full">
-                  <div className="absolute inset-y-0 left-[30%] right-[25%] bg-brvm-green/30 rounded-full" />
-                  {current && <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-brvm-green rounded-full border-2 border-white shadow" style={{ left: '48%' }} />}
-                </div>
-                <div className="text-center">
-                  <p className="text-[10px] text-brvm-muted">Haut</p>
-                  <p className="font-mono font-bold text-sm text-brvm-subtext">{fmtP(current ? current * 1.22 : null)}</p>
-                </div>
-              </div>
-              <p className="text-center text-xs text-brvm-muted">
-                Objectif médian : <span className="font-bold text-brvm-text font-mono">{fmtP(current ? current * 1.12 : null)} FCFA</span>
-                &nbsp;·&nbsp; Potentiel : <span className="text-brvm-green font-semibold">+12%</span>
-              </p>
-            </div>
-            {/* Avis analystes */}
-            <div className="space-y-2">
-              <p className="text-xs font-bold text-brvm-text">Avis des analystes</p>
-              {[
-                { firm: 'Afrivest Research', rec: 'Achat', target: current ? Math.round(current * 1.15) : 0, date: 'fév. 2026', note: 'Valorisation attractive, profil risque/rendement favorable' },
-                { firm: 'Hudson & Associates', rec: 'Achat', target: current ? Math.round(current * 1.12) : 0, date: 'jan. 2026', note: 'Bons fondamentaux, dividende en croissance régulière' },
-                { firm: 'BNP Paribas BRVM', rec: 'Achat', target: current ? Math.round(current * 1.10) : 0, date: 'jan. 2026', note: 'Secteur solide, maintien de la recommandation positive' },
-                { firm: 'SGBCI Capital', rec: 'Neutre', target: current ? Math.round(current * 1.04) : 0, date: 'déc. 2025', note: 'Cours proche de notre objectif, passage à neutre' },
-              ].map((a, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 border border-brvm-border rounded-xl text-xs">
-                  <span className={`px-2 py-0.5 rounded font-bold text-white text-[10px] ${a.rec === 'Achat' ? 'bg-brvm-green' : a.rec === 'Vente' ? 'bg-brvm-red' : 'bg-amber-400'}`}>{a.rec}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-brvm-subtext">{a.firm}</p>
-                    <p className="text-brvm-muted text-[10px] truncate">{a.note}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="font-mono font-bold text-brvm-text">{fmtP(a.target)}</p>
-                    <p className="text-[10px] text-brvm-muted">{a.date}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <RecoPanel
+            company={companies.find(c => c.ticker === ticker) ?? null}
+            extras={extras}
+            details={details}
+            ticker={ticker}
+            currentPrice={current}
+          />
         )}
 
       </div>
