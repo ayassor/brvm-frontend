@@ -4,7 +4,8 @@ import {
   ChevronDown, ChevronLeft, ChevronRight, ArrowLeft,
   Clock, TrendingUp, PieChart, Users, X, Star,
 } from 'lucide-react'
-import { mockEducationApi as educationApi } from '../mocks/education-data'
+import { educationApi } from '../api/education.api'
+import type { CourseFromAPI } from '../api/education.api'
 import type { Article, GlossaryTerm } from '../types'
 import Spinner from '../components/common/Spinner'
 
@@ -18,7 +19,7 @@ interface CourseEntry {
   id: number
   title: string
   description: string
-  level: 'beginner' | 'intermediate' | 'coaching'
+  level: 'beginner' | 'intermediate' | 'advanced' | 'coaching'
   is_paid: boolean
   price: number | null
   isCoaching?: boolean
@@ -341,9 +342,18 @@ function PaywallOverlay({ course }: { course: CourseEntry }) {
   )
 }
 
+// Helper to convert CourseFromAPI to CourseEntry (adds isCoaching)
+function apiCourseToEntry(c: CourseFromAPI): CourseEntry {
+  return {
+    ...c,
+    isCoaching: c.level === 'coaching',
+  }
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function Education() {
   const [tab, setTab]           = useState<Tab>('courses')
+  const [courses, setCourses]   = useState<CourseEntry[]>([])
   const [articles, setArticles] = useState<Article[]>([])
   const [glossary, setGlossary] = useState<GlossaryTerm[]>([])
   const [loading, setLoading]   = useState(true)
@@ -358,14 +368,18 @@ export default function Education() {
   const playerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    Promise.all([educationApi.articles(), educationApi.glossary()])
-      .then(([a, g]) => { setArticles(a); setGlossary(g) })
+    Promise.all([educationApi.courses(), educationApi.articles(), educationApi.glossary()])
+      .then(([c, a, g]) => {
+        setCourses(c.map(apiCourseToEntry))
+        setArticles(a)
+        setGlossary(g)
+      })
       .finally(() => setLoading(false))
   }, [])
 
   const selectedCourse = useMemo(
-    () => COURSES_CATALOG.find((c) => c.id === selectedCourseId) ?? null,
-    [selectedCourseId],
+    () => courses.find((c) => c.id === selectedCourseId) ?? null,
+    [courses, selectedCourseId],
   )
   const courseChapters = selectedCourse?.chapters ?? []
   const allLessons     = useMemo(() => flattenLessons(courseChapters), [courseChapters])
@@ -413,11 +427,11 @@ export default function Education() {
     !search || t.term.toLowerCase().includes(search.toLowerCase())
   )
 
-  const totalCourseLessons = COURSES_CATALOG.filter(c => !c.isCoaching)
+  const totalCourseLessons = courses.filter(c => !c.isCoaching)
     .reduce((s, c) => s + countLessons(c.chapters), 0)
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode; badge: string }[] = [
-    { key: 'courses',  label: 'Formations', icon: <PlayCircle size={15} />, badge: `${COURSES_CATALOG.length}` },
+    { key: 'courses',  label: 'Formations', icon: <PlayCircle size={15} />, badge: `${courses.length}` },
     { key: 'articles', label: 'Articles',   icon: <FileText size={15} />,  badge: String(articles.length) },
     { key: 'glossary', label: 'Glossaire',  icon: <BookOpen size={15} />,  badge: String(glossary.length) },
   ]
@@ -472,7 +486,7 @@ export default function Education() {
           {/* ── Catalog ── */}
           {selectedCourseId === null && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {COURSES_CATALOG.map((course, index) => {
+              {courses.map((course, index) => {
                 const lessonCount  = countLessons(course.chapters)
                 const chapterCount = course.chapters.length
                 return (
@@ -484,7 +498,7 @@ export default function Education() {
                     {/* Thumbnail */}
                     <div
                       className="relative h-44 w-full overflow-hidden flex-shrink-0"
-                      style={{ background: CARD_GRADIENT[course.id] }}
+                      style={{ background: CARD_GRADIENT[index % 4] }}
                     >
                       {/* Decorative circles */}
                       <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10" />
@@ -523,7 +537,7 @@ export default function Education() {
                       {/* Center icon */}
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 group-hover:scale-110 transition-transform duration-200">
-                          <CardIcon id={course.id} />
+                          <CardIcon id={index % 4} />
                         </div>
                       </div>
                     </div>

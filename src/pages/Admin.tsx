@@ -24,7 +24,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 /* ══════════════════════════════════════════════════════════════
    TYPES
 ══════════════════════════════════════════════════════════════ */
-type Module = 'apercu' | 'societes' | 'fondamentaux' | 'dividendes' | 'bulletin' | 'historique' | 'actualites' | 'resume' | 'recommandations' | 'rapports'
+type Module = 'apercu' | 'societes' | 'fondamentaux' | 'dividendes' | 'bulletin' | 'historique' | 'actualites' | 'resume' | 'recommandations' | 'rapports' | 'education'
 
 interface BulletinRow {
   id:            number
@@ -413,6 +413,7 @@ function ModuleApercu({ onNavigate }: ModuleApercuProps) {
     { label: 'Résumé analytique',   sub: 'Texte exécutif & thèse',  module: 'resume',          icon: <MessageSquare size={16} />,   color: 'text-violet-600' },
     { label: 'Recommandations',     sub: 'Objectifs de cours',       module: 'recommandations', icon: <Target size={16} />,          color: 'text-orange-600' },
     { label: 'Rapports',            sub: 'Rapports financiers',      module: 'rapports',        icon: <BookOpen size={16} />,        color: 'text-cyan-600' },
+    { label: 'Formations',          sub: 'Gérer les cours vidéo',    module: 'education',       icon: <BookOpen size={16} />,            color: 'text-emerald-600' },
     { label: 'Bulletin de la Cote', sub: 'PDF → extraction SQL',     module: 'bulletin',        icon: <FileText size={16} />,        color: 'text-brvm-gold' },
     { label: 'Import Historique',   sub: 'Excel & JSON → SQL',       module: 'historique',      icon: <FileSpreadsheet size={16} />, color: 'text-brvm-subtext' },
   ]
@@ -848,6 +849,27 @@ function ModuleBulletin() {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   MODULE: EDUCATION REDIRECT
+══════════════════════════════════════════════════════════════ */
+function EducationRedirect() {
+  return (
+    <div className="p-8 flex flex-col items-center justify-center min-h-[60vh]">
+      <BookOpen size={48} className="text-brvm-green mb-4 opacity-80" />
+      <h2 className="text-xl font-bold text-brvm-text mb-2">Gestion des formations</h2>
+      <p className="text-brvm-subtext text-sm mb-6 text-center max-w-md">
+        Gérez vos cours, chapitres, leçons, articles et glossaire depuis la page dédiée.
+      </p>
+      <a
+        href="/admin/education"
+        className="bg-brvm-green text-white font-semibold px-6 py-3 rounded-xl text-sm hover:bg-brvm-green/90 transition-colors shadow-sm"
+      >
+        Ouvrir la gestion des formations →
+      </a>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════════
    TOPBAR BREADCRUMB LABELS
 ══════════════════════════════════════════════════════════════ */
 const MODULE_LABELS: Record<Module, string> = {
@@ -859,6 +881,7 @@ const MODULE_LABELS: Record<Module, string> = {
   resume:          'Résumé analytique',
   recommandations: 'Recommandations',
   rapports:        'Rapports financiers',
+  education:       'Formations',
   bulletin:        'Bulletin de la Cote',
   historique:      'Import Historique',
 }
@@ -907,6 +930,7 @@ export default function Admin() {
           {module === 'resume'          && <AdminResume />}
           {module === 'recommandations' && <AdminRecommandations />}
           {module === 'rapports'        && <AdminRapports />}
+          {module === 'education'       && <EducationRedirect />}
           {module === 'bulletin'        && <ModuleBulletin />}
           {module === 'historique'      && <DataImport />}
         </div>

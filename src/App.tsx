@@ -24,6 +24,8 @@ import LiveApiDebug from './pages/LiveApiDebug'
 import Ai from './pages/Ai'
 import DataImport from './pages/DataImport'
 import Admin from './pages/Admin'
+import AdminEducation from './pages/AdminEducation'
+import AdminEducationCourse from './pages/AdminEducationCourse'
 
 export default function App() {
   return (
@@ -58,6 +60,8 @@ export default function App() {
             <Route path="/portfolio" element={<Portfolio />} />
           </Route>
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/education" element={<AdminEducation />} />
+          <Route path="/admin/education/:courseId" element={<AdminEducationCourse />} />
           <Route element={<LayoutFull />}>
             <Route path="/simulator/portfolio" element={<BrvmSimulator />} />
           </Route>

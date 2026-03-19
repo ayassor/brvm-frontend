@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   TrendingUp, BarChart2, BookOpen, LayoutDashboard,
-  LogOut, User, Menu, X, ChevronDown, Bot, Briefcase,
+  LogOut, User, Menu, X, ChevronDown, Briefcase,
   Newspaper, Building, Landmark, LineChart, Wifi, Database,
 } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch'
@@ -183,21 +183,6 @@ export default function Navbar() {
               Apprendre
             </NavLink>
 
-            {/* IA */}
-            <NavLink
-              to="/ai"
-              className={({ isActive }) =>
-                `flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-brvm-green/10 text-brvm-green'
-                    : 'text-brvm-subtext hover:text-brvm-text hover:bg-slate-100'
-                }`
-              }
-            >
-              <Bot size={16} />
-              IA
-            </NavLink>
-
             {/* Simulation – dernier */}
             <NavLink
               to="/portfolio"
@@ -317,10 +302,6 @@ export default function Navbar() {
           <NavLink to="/education" onClick={() => setMobileOpen(false)}
             className={({ isActive }) => `flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium ${isActive ? 'bg-brvm-green/10 text-brvm-green' : 'text-brvm-subtext'}`}>
             <BookOpen size={15} /> Apprendre
-          </NavLink>
-          <NavLink to="/ai" onClick={() => setMobileOpen(false)}
-            className={({ isActive }) => `flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium ${isActive ? 'bg-brvm-green/10 text-brvm-green' : 'text-brvm-subtext'}`}>
-            <Bot size={15} /> Assistant IA
           </NavLink>
           <NavLink to="/portfolio" onClick={() => setMobileOpen(false)}
             className={({ isActive }) => `flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium ${isActive ? 'bg-brvm-green/10 text-brvm-green' : 'text-brvm-subtext'}`}>

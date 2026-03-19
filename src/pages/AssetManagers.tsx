@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { assetManagersApi, SGIData, SGOData } from '../api/assetManagers.api'
 import { Search, Phone, X, Globe, MessageSquare, Send, Plus, CheckCircle, Info, Star, AlertCircle, ChevronDown } from 'lucide-react'
 
 // ─── Flag image ───────────────────────────────────────────────────────────────
@@ -859,6 +860,34 @@ export default function AssetManagers() {
   const [sgoCountryFilter, setSgoCountryFilter] = useState<string>('all')
   const [reviews, setReviews]             = useState<Review[]>(INITIAL_REVIEWS)
   const [reviewModal, setReviewModal]     = useState<string | null>(null)
+  const [sgiList, setSgiList] = useState<typeof SGI_LIST>(SGI_LIST)
+  const [sgoList, setSgoList] = useState<typeof SGO_LIST>(SGO_LIST)
+  const [apiLoaded, setApiLoaded] = useState(false)
+
+  useEffect(() => {
+    Promise.all([assetManagersApi.getSGIs(), assetManagersApi.getSGOs()])
+      .then(([sgis, sgos]) => {
+        if (sgis.length > 0) {
+          setSgiList(sgis.map(s => ({
+            name: s.name, phone: s.phone ?? '', country: s.country, code: s.country_code,
+            minDeposit: s.min_deposit, openingFees: s.opening_fees, website: s.website,
+          })))
+        }
+        if (sgos.length > 0) {
+          setSgoList(sgos.map(s => ({
+            name: s.name, country: s.country, code: s.country_code,
+            address: s.address, phone: s.phone, email: s.email,
+            website: s.website, partnerSGI: s.partner_sgi,
+            funds: s.funds.map(f => ({ name: f.name, cat: f.cat as any, vlCurrent: f.vlCurrent, perfWeek: f.perfWeek })),
+          })))
+        }
+        setApiLoaded(true)
+      })
+      .catch(() => {
+        // Fallback silencieux sur les données hardcoded
+        setApiLoaded(true)
+      })
+  }, [])
 
   const addReview = (r: Omit<Review, 'id' | 'date'>) => {
     const date = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -867,19 +896,19 @@ export default function AssetManagers() {
 
   const filteredSGI = useMemo(() => {
     const q = search.toLowerCase()
-    return SGI_LIST.filter((s) =>
+    return sgiList.filter((s) =>
       (countryFilter === 'all' || s.code === countryFilter) &&
       (!q || s.name.toLowerCase().includes(q) || s.country.toLowerCase().includes(q))
     )
-  }, [search, countryFilter])
+  }, [search, countryFilter, sgiList])
 
   const filteredSGO = useMemo(() => {
     const q = search.toLowerCase()
-    return SGO_LIST.filter((s) =>
+    return sgoList.filter((s) =>
       (sgoCountryFilter === 'all' || s.code === sgoCountryFilter) &&
       (!q || s.name.toLowerCase().includes(q) || s.country.toLowerCase().includes(q))
     )
-  }, [search, sgoCountryFilter])
+  }, [search, sgoCountryFilter, sgoList])
 
   const clearFilters = () => { setSearch(''); setCountryFilter('all'); setSgoCountryFilter('all') }
   const hasFilters = search !== '' || countryFilter !== 'all'
@@ -895,7 +924,7 @@ export default function AssetManagers() {
         </div>
         <div className="flex items-center gap-2 text-xs text-brvm-muted bg-slate-50 border border-brvm-border rounded-lg px-3 py-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-brvm-green" />
-          {SGI_LIST.length} SGI · {SGO_LIST.length} SGO · 7 pays
+          {sgiList.length} SGI · {sgoList.length} SGO · 7 pays
         </div>
       </div>
 
@@ -906,7 +935,7 @@ export default function AssetManagers() {
             className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${
               activeTab === tab ? 'bg-white text-brvm-text shadow-sm' : 'text-brvm-muted hover:text-brvm-subtext'
             }`}>
-            {tab === 'SGI' ? `SGI — Courtiers · ${SGI_LIST.length}` : `SGO — Gestionnaires · ${SGO_LIST.length}`}
+            {tab === 'SGI' ? `SGI — Courtiers · ${sgiList.length}` : `SGO — Gestionnaires · ${sgoList.length}`}
           </button>
         ))}
       </div>
@@ -927,7 +956,7 @@ export default function AssetManagers() {
                   countryFilter === 'all' ? 'bg-brvm-text text-white border-brvm-text' : 'bg-white text-brvm-subtext border-brvm-border hover:border-brvm-text/30 hover:text-brvm-text'
                 }`}>Tous</button>
               {COUNTRIES.map((c) => {
-                const count = SGI_LIST.filter((s) => s.code === c.code).length
+                const count = sgiList.filter((s) => s.code === c.code).length
                 return (
                   <button key={c.code} onClick={() => setCountryFilter(countryFilter === c.code ? 'all' : c.code)}
                     className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors border ${
@@ -1087,7 +1116,7 @@ export default function AssetManagers() {
                 Tous
               </button>
               {SGO_COUNTRIES.map((c) => {
-                const count = SGO_LIST.filter((s) => s.code === c.code).length
+                const count = sgoList.filter((s) => s.code === c.code).length
                 return (
                   <button key={c.code} onClick={() => setSgoCountryFilter(sgoCountryFilter === c.code ? 'all' : c.code)}
                     className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors border ${sgoCountryFilter === c.code ? 'bg-brvm-green text-white border-brvm-green' : 'bg-white text-brvm-subtext border-brvm-border hover:border-brvm-green/40 hover:text-brvm-text'}`}>
@@ -1102,7 +1131,7 @@ export default function AssetManagers() {
 
           <p className="text-brvm-muted text-xs">
             {filteredSGO.length} société{filteredSGO.length !== 1 ? 's' : ''} de gestion
-            {' · '}{SGO_LIST.reduce((sum, s) => sum + s.funds.length, 0)} fonds OPCVM recensés
+            {' · '}{sgoList.reduce((sum, s) => sum + s.funds.length, 0)} fonds OPCVM recensés
           </p>
 
           {filteredSGO.length === 0 ? (
