@@ -44,10 +44,10 @@ interface ModalProps { title: string; onClose: () => void; children: React.React
 function Modal({ title, onClose, children }: ModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-brvm-card border border-brvm-border rounded-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b border-brvm-border">
+      <div className="bg-[#132030] border border-white/10 rounded-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
           <h3 className="text-white font-semibold">{title}</h3>
-          <button onClick={onClose} className="text-brvm-text-muted hover:text-white p-1 rounded transition-colors">
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -63,10 +63,10 @@ interface ConfirmProps { message: string; onConfirm: () => void; onCancel: () =>
 function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-brvm-card border border-brvm-border rounded-xl w-full max-w-sm mx-4 p-6">
+      <div className="bg-[#132030] border border-white/10 rounded-xl w-full max-w-sm mx-4 p-6">
         <p className="text-white mb-6">{message}</p>
         <div className="flex gap-3 justify-end">
-          <button onClick={onCancel} className="px-4 py-2 text-sm border border-brvm-border text-brvm-text-muted hover:text-white rounded-lg transition-colors">
+          <button onClick={onCancel} className="px-4 py-2 text-sm border border-white/10 text-slate-400 hover:text-white rounded-lg transition-colors">
             Annuler
           </button>
           <button onClick={onConfirm} className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">
@@ -105,13 +105,13 @@ interface FieldProps {
 function Field({ label, value, onChange, required, placeholder, type = 'text' }: FieldProps) {
   return (
     <div>
-      <label className="block text-xs text-brvm-text-muted mb-1">
+      <label className="block text-xs text-slate-400 mb-1">
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </label>
       <input
         type={type} value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-brvm-bg border border-brvm-border rounded-lg px-3 py-2 text-sm text-white placeholder-brvm-text-muted focus:outline-none focus:border-brvm-green transition-colors"
+        className="w-full bg-[#0d1b2a] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brvm-green transition-colors"
       />
     </div>
   )
@@ -124,18 +124,18 @@ interface SelectFieldProps {
 function SelectField({ label, value, onChange, options, required }: SelectFieldProps) {
   return (
     <div>
-      <label className="block text-xs text-brvm-text-muted mb-1">
+      <label className="block text-xs text-slate-400 mb-1">
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </label>
       <div className="relative">
         <select
           value={value} onChange={e => onChange(e.target.value)}
-          className="w-full bg-brvm-bg border border-brvm-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brvm-green transition-colors appearance-none"
+          className="w-full bg-[#0d1b2a] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brvm-green transition-colors appearance-none"
         >
           <option value="">— Sélectionner —</option>
           {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-brvm-text-muted pointer-events-none" />
+        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
       </div>
     </div>
   )
@@ -228,13 +228,13 @@ function SGITab() {
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 min-w-[180px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-brvm-text-muted" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Rechercher SGI…"
-            className="w-full bg-brvm-bg border border-brvm-border rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-brvm-text-muted focus:outline-none focus:border-brvm-green"
+            className="w-full bg-[#0d1b2a] border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brvm-green"
           />
         </div>
-        <button onClick={load} className="p-2 border border-brvm-border rounded-lg text-brvm-text-muted hover:text-white transition-colors">
+        <button onClick={load} className="p-2 border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
         </button>
         <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-brvm-green hover:bg-brvm-green/80 text-white text-sm rounded-lg transition-colors">
@@ -246,7 +246,7 @@ function SGITab() {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-brvm-border text-brvm-text-muted text-xs uppercase">
+            <tr className="border-b border-white/10 text-slate-400 text-xs uppercase">
               <th className="text-left py-3 px-3">Nom</th>
               <th className="text-left py-3 px-3">Pays</th>
               <th className="text-left py-3 px-3">Téléphone</th>
@@ -257,27 +257,27 @@ function SGITab() {
           </thead>
           <tbody>
             {filtered.map(sgi => (
-              <tr key={sgi.id} className="border-b border-brvm-border/50 hover:bg-white/5 transition-colors">
+              <tr key={sgi.id} className="border-b border-white/10/50 hover:bg-white/5 transition-colors">
                 <td className="py-3 px-3 text-white font-medium">{sgi.name}</td>
                 <td className="py-3 px-3">
                   <div className="flex items-center gap-2">
                     <FlagImg code={sgi.country_code} country={sgi.country} />
-                    <span className="text-brvm-text-muted">{sgi.country}</span>
+                    <span className="text-slate-400">{sgi.country}</span>
                   </div>
                 </td>
-                <td className="py-3 px-3 text-brvm-text-muted">{f(sgi.phone)}</td>
-                <td className="py-3 px-3 text-brvm-text-muted">{f(sgi.min_deposit)}</td>
+                <td className="py-3 px-3 text-slate-400">{f(sgi.phone)}</td>
+                <td className="py-3 px-3 text-slate-400">{f(sgi.min_deposit)}</td>
                 <td className="py-3 px-3">
                   {sgi.website
                     ? <a href={sgi.website} target="_blank" rel="noopener noreferrer" className="text-brvm-green hover:underline flex items-center gap-1"><Globe size={12} />{sgi.website}</a>
-                    : <span className="text-brvm-text-muted">—</span>}
+                    : <span className="text-slate-400">—</span>}
                 </td>
                 <td className="py-3 px-3">
                   <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => openEdit(sgi)} className="p-1.5 text-brvm-text-muted hover:text-brvm-green transition-colors" title="Modifier">
+                    <button onClick={() => openEdit(sgi)} className="p-1.5 text-slate-400 hover:text-brvm-green transition-colors" title="Modifier">
                       <Pencil size={14} />
                     </button>
-                    <button onClick={() => setDeleteTarget(sgi)} className="p-1.5 text-brvm-text-muted hover:text-red-400 transition-colors" title="Supprimer">
+                    <button onClick={() => setDeleteTarget(sgi)} className="p-1.5 text-slate-400 hover:text-red-400 transition-colors" title="Supprimer">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -285,12 +285,12 @@ function SGITab() {
               </tr>
             ))}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={6} className="py-8 text-center text-brvm-text-muted">Aucune SGI trouvée.</td></tr>
+              <tr><td colSpan={6} className="py-8 text-center text-slate-400">Aucune SGI trouvée.</td></tr>
             )}
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-brvm-text-muted mt-3">{filtered.length} SGI</p>
+      <p className="text-xs text-slate-400 mt-3">{filtered.length} SGI</p>
 
       {/* Modal création/édition */}
       {modalOpen && (
@@ -310,7 +310,7 @@ function SGITab() {
             <Field label="Frais d'ouverture" value={form.opening_fees || ''} onChange={v => setForm(p => ({ ...p, opening_fees: v || null }))} placeholder="Ex: Gratuit" />
           </div>
           <div className="flex gap-3 justify-end mt-5">
-            <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm border border-brvm-border text-brvm-text-muted hover:text-white rounded-lg transition-colors">
+            <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm border border-white/10 text-slate-400 hover:text-white rounded-lg transition-colors">
               Annuler
             </button>
             <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 text-sm bg-brvm-green hover:bg-brvm-green/80 disabled:opacity-50 text-white rounded-lg transition-colors">
@@ -423,13 +423,13 @@ function SGOTab() {
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 min-w-[180px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-brvm-text-muted" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Rechercher SGO…"
-            className="w-full bg-brvm-bg border border-brvm-border rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-brvm-text-muted focus:outline-none focus:border-brvm-green"
+            className="w-full bg-[#0d1b2a] border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brvm-green"
           />
         </div>
-        <button onClick={load} className="p-2 border border-brvm-border rounded-lg text-brvm-text-muted hover:text-white transition-colors">
+        <button onClick={load} className="p-2 border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
         </button>
         <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-brvm-green hover:bg-brvm-green/80 text-white text-sm rounded-lg transition-colors">
@@ -440,7 +440,7 @@ function SGOTab() {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-brvm-border text-brvm-text-muted text-xs uppercase">
+            <tr className="border-b border-white/10 text-slate-400 text-xs uppercase">
               <th className="text-left py-3 px-3">Nom</th>
               <th className="text-left py-3 px-3">Pays</th>
               <th className="text-left py-3 px-3">Téléphone</th>
@@ -451,23 +451,23 @@ function SGOTab() {
           </thead>
           <tbody>
             {filtered.map(sgo => (
-              <tr key={sgo.id} className="border-b border-brvm-border/50 hover:bg-white/5 transition-colors">
+              <tr key={sgo.id} className="border-b border-white/10/50 hover:bg-white/5 transition-colors">
                 <td className="py-3 px-3 text-white font-medium">{sgo.name}</td>
                 <td className="py-3 px-3">
                   <div className="flex items-center gap-2">
                     <FlagImg code={sgo.country_code} country={sgo.country} />
-                    <span className="text-brvm-text-muted">{sgo.country}</span>
+                    <span className="text-slate-400">{sgo.country}</span>
                   </div>
                 </td>
-                <td className="py-3 px-3 text-brvm-text-muted">{f(sgo.phone)}</td>
-                <td className="py-3 px-3 text-brvm-text-muted">{f(sgo.email)}</td>
-                <td className="py-3 px-3 text-brvm-text-muted">{f(sgo.partner_sgi)}</td>
+                <td className="py-3 px-3 text-slate-400">{f(sgo.phone)}</td>
+                <td className="py-3 px-3 text-slate-400">{f(sgo.email)}</td>
+                <td className="py-3 px-3 text-slate-400">{f(sgo.partner_sgi)}</td>
                 <td className="py-3 px-3">
                   <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => openEdit(sgo)} className="p-1.5 text-brvm-text-muted hover:text-brvm-green transition-colors" title="Modifier">
+                    <button onClick={() => openEdit(sgo)} className="p-1.5 text-slate-400 hover:text-brvm-green transition-colors" title="Modifier">
                       <Pencil size={14} />
                     </button>
-                    <button onClick={() => setDeleteTarget(sgo)} className="p-1.5 text-brvm-text-muted hover:text-red-400 transition-colors" title="Supprimer">
+                    <button onClick={() => setDeleteTarget(sgo)} className="p-1.5 text-slate-400 hover:text-red-400 transition-colors" title="Supprimer">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -475,12 +475,12 @@ function SGOTab() {
               </tr>
             ))}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={6} className="py-8 text-center text-brvm-text-muted">Aucun SGO trouvé.</td></tr>
+              <tr><td colSpan={6} className="py-8 text-center text-slate-400">Aucun SGO trouvé.</td></tr>
             )}
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-brvm-text-muted mt-3">{filtered.length} SGO</p>
+      <p className="text-xs text-slate-400 mt-3">{filtered.length} SGO</p>
 
       {modalOpen && (
         <Modal title={editTarget ? 'Modifier SGO' : 'Ajouter SGO'} onClose={() => setModalOpen(false)}>
@@ -500,7 +500,7 @@ function SGOTab() {
             <Field label="SGI partenaire" value={form.partner_sgi || ''} onChange={v => setForm(p => ({ ...p, partner_sgi: v || null }))} placeholder="Nom de la SGI partenaire" />
           </div>
           <div className="flex gap-3 justify-end mt-5">
-            <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm border border-brvm-border text-brvm-text-muted hover:text-white rounded-lg transition-colors">
+            <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm border border-white/10 text-slate-400 hover:text-white rounded-lg transition-colors">
               Annuler
             </button>
             <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 text-sm bg-brvm-green hover:bg-brvm-green/80 disabled:opacity-50 text-white rounded-lg transition-colors">
@@ -629,21 +629,21 @@ function FundsTab() {
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 min-w-[180px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-brvm-text-muted" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Rechercher fonds…"
-            className="w-full bg-brvm-bg border border-brvm-border rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-brvm-text-muted focus:outline-none focus:border-brvm-green"
+            className="w-full bg-[#0d1b2a] border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brvm-green"
           />
         </div>
         <div className="relative">
           <select value={filterSgo} onChange={e => setFilterSgo(e.target.value)}
-            className="bg-brvm-bg border border-brvm-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brvm-green appearance-none pr-8">
+            className="bg-[#0d1b2a] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brvm-green appearance-none pr-8">
             <option value="">Tous les SGO</option>
             {sgos.map(s => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
           </select>
-          <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-brvm-text-muted pointer-events-none" />
+          <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
         </div>
-        <button onClick={load} className="p-2 border border-brvm-border rounded-lg text-brvm-text-muted hover:text-white transition-colors">
+        <button onClick={load} className="p-2 border border-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
         </button>
         <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-brvm-green hover:bg-brvm-green/80 text-white text-sm rounded-lg transition-colors">
@@ -654,7 +654,7 @@ function FundsTab() {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-brvm-border text-brvm-text-muted text-xs uppercase">
+            <tr className="border-b border-white/10 text-slate-400 text-xs uppercase">
               <th className="text-left py-3 px-3">Nom du fonds</th>
               <th className="text-left py-3 px-3">SGO</th>
               <th className="text-left py-3 px-3">Catégorie</th>
@@ -665,28 +665,28 @@ function FundsTab() {
           </thead>
           <tbody>
             {filtered.map(fund => (
-              <tr key={fund.id} className="border-b border-brvm-border/50 hover:bg-white/5 transition-colors">
+              <tr key={fund.id} className="border-b border-white/10/50 hover:bg-white/5 transition-colors">
                 <td className="py-3 px-3 text-white font-medium max-w-xs truncate">{fund.name}</td>
-                <td className="py-3 px-3 text-brvm-text-muted text-xs">{sgoName(fund.sgo_id)}</td>
+                <td className="py-3 px-3 text-slate-400 text-xs">{sgoName(fund.sgo_id)}</td>
                 <td className="py-3 px-3">
                   <span className="text-xs bg-brvm-green/20 text-brvm-green px-2 py-0.5 rounded-full">
                     {fund.category}
                   </span>
                 </td>
-                <td className="py-3 px-3 text-right text-brvm-text-muted">
+                <td className="py-3 px-3 text-right text-slate-400">
                   {fund.vl_current != null ? fund.vl_current.toLocaleString('fr-FR') : '—'}
                 </td>
                 <td className="py-3 px-3 text-right">
                   {fund.perf_week
                     ? <span className={fund.perf_week.startsWith('-') ? 'text-red-400' : 'text-green-400'}>{fund.perf_week}</span>
-                    : <span className="text-brvm-text-muted">—</span>}
+                    : <span className="text-slate-400">—</span>}
                 </td>
                 <td className="py-3 px-3">
                   <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => openEdit(fund)} className="p-1.5 text-brvm-text-muted hover:text-brvm-green transition-colors" title="Modifier">
+                    <button onClick={() => openEdit(fund)} className="p-1.5 text-slate-400 hover:text-brvm-green transition-colors" title="Modifier">
                       <Pencil size={14} />
                     </button>
-                    <button onClick={() => setDeleteTarget(fund)} className="p-1.5 text-brvm-text-muted hover:text-red-400 transition-colors" title="Supprimer">
+                    <button onClick={() => setDeleteTarget(fund)} className="p-1.5 text-slate-400 hover:text-red-400 transition-colors" title="Supprimer">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -694,12 +694,12 @@ function FundsTab() {
               </tr>
             ))}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={6} className="py-8 text-center text-brvm-text-muted">Aucun fonds trouvé.</td></tr>
+              <tr><td colSpan={6} className="py-8 text-center text-slate-400">Aucun fonds trouvé.</td></tr>
             )}
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-brvm-text-muted mt-3">{filtered.length} fonds</p>
+      <p className="text-xs text-slate-400 mt-3">{filtered.length} fonds</p>
 
       {modalOpen && (
         <Modal title={editTarget ? 'Modifier fonds' : 'Ajouter fonds'} onClose={() => setModalOpen(false)}>
@@ -717,7 +717,7 @@ function FundsTab() {
             <Field label="Perf. semaine" value={form.perf_week} onChange={v => setForm(p => ({ ...p, perf_week: v }))} placeholder="Ex: +1.23%" />
           </div>
           <div className="flex gap-3 justify-end mt-5">
-            <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm border border-brvm-border text-brvm-text-muted hover:text-white rounded-lg transition-colors">
+            <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm border border-white/10 text-slate-400 hover:text-white rounded-lg transition-colors">
               Annuler
             </button>
             <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 text-sm bg-brvm-green hover:bg-brvm-green/80 disabled:opacity-50 text-white rounded-lg transition-colors">
@@ -755,18 +755,18 @@ export default function AdminAssetManagers() {
       {/* Header */}
       <div>
         <h2 className="text-xl font-bold text-white">Sociétés de Gestion</h2>
-        <p className="text-sm text-brvm-text-muted mt-1">Gérez les SGI, SGO et leurs fonds OPCVM.</p>
+        <p className="text-sm text-slate-400 mt-1">Gérez les SGI, SGO et leurs fonds OPCVM.</p>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-brvm-border">
+      <div className="border-b border-white/10">
         <div className="flex gap-1">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 tab === t.id
                   ? 'border-brvm-green text-brvm-green'
-                  : 'border-transparent text-brvm-text-muted hover:text-white'
+                  : 'border-transparent text-slate-400 hover:text-white'
               }`}>
               {t.label}
             </button>
@@ -775,7 +775,7 @@ export default function AdminAssetManagers() {
       </div>
 
       {/* Tab content */}
-      <div className="bg-brvm-card border border-brvm-border rounded-xl p-4">
+      <div className="bg-[#132030] border border-white/10 rounded-xl p-4">
         {tab === 'sgi' && <SGITab />}
         {tab === 'sgo' && <SGOTab />}
         {tab === 'funds' && <FundsTab />}

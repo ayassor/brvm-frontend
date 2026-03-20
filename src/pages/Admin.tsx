@@ -387,7 +387,7 @@ function Sidebar({ active, onChange }: SidebarProps) {
       </div>
 
       {/* ── Nav ── */}
-      <nav className="flex-1 px-2.5 py-4 overflow-y-auto space-y-5">
+      <nav className="flex-1 px-2.5 py-4 overflow-y-auto space-y-5 admin-scrollbar">
         {/* Overview */}
         <div>
           {renderItem({ id: 'apercu', icon: <LayoutDashboard size={16} />, label: "Vue d'ensemble", sub: 'Dashboard global' })}

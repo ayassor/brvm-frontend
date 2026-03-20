@@ -65,3 +65,18 @@ html {
   background-size: 48px 48px;
   animation: liveGridPulse 6s ease-in-out infinite;
 }
+
+/* Admin sidebar scrollbar */
+.admin-scrollbar::-webkit-scrollbar {
+  width: 3px;
+}
+.admin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 99px;
+}
+.admin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.2);
+}
