@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft, Plus, Pencil, Trash2, ChevronDown, ChevronRight, BookOpen, FileText, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, BookOpen, FileText, Search, Layers, GraduationCap, DollarSign } from 'lucide-react'
 import api from '../api/axios'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -105,17 +104,127 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <span className="text-xs font-semibold text-brvm-subtext uppercase tracking-wide">{label}</span>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${checked ? 'bg-brvm-green' : 'bg-slate-200'}`}
+      >
+        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
+      </button>
+    </div>
+  )
+}
+
 const inputCls = "w-full border border-brvm-border rounded-lg px-3 py-2 text-sm text-brvm-text focus:outline-none focus:border-brvm-green focus:ring-2 focus:ring-brvm-green/20 transition"
 const btnPrimary = "bg-brvm-green text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-brvm-green/90 transition-colors"
 const btnDanger = "text-brvm-red hover:bg-red-50 p-1.5 rounded-lg transition-colors"
 const btnEdit = "text-brvm-subtext hover:bg-slate-100 p-1.5 rounded-lg transition-colors"
 
+// ─── Level badge ──────────────────────────────────────────────────────────────
+const levelConfig: Record<string, { label: string; cls: string }> = {
+  beginner:     { label: 'Débutant',      cls: 'bg-green-100 text-green-700' },
+  intermediate: { label: 'Intermédiaire', cls: 'bg-blue-100 text-blue-700' },
+  advanced:     { label: 'Avancé',        cls: 'bg-orange-100 text-orange-700' },
+  coaching:     { label: 'Coaching',      cls: 'bg-violet-100 text-violet-700' },
+}
+
+function LevelBadge({ level }: { level: string }) {
+  const cfg = levelConfig[level] ?? { label: level, cls: 'bg-slate-100 text-slate-600' }
+  return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.label}</span>
+}
+
+// ─── Structure panel ──────────────────────────────────────────────────────────
+function StructurePanel({
+  course,
+  onAddChapter,
+  onEditChapter,
+  onDeleteChapter,
+  onAddLesson,
+  onEditLesson,
+  onDeleteLesson,
+}: {
+  course: Course
+  onAddChapter: () => void
+  onEditChapter: (ch: Chapter) => void
+  onDeleteChapter: (id: number) => void
+  onAddLesson: (chapterId: number) => void
+  onEditLesson: (l: Lesson, chapterId: number) => void
+  onDeleteLesson: (id: number) => void
+}) {
+  const [expandedChapter, setExpandedChapter] = useState<number | null>(null)
+
+  return (
+    <div className="mt-4 border-t border-brvm-border pt-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-semibold text-brvm-subtext uppercase tracking-wider">
+          Chapitres ({course.chapters?.length ?? 0})
+        </p>
+        <button
+          onClick={onAddChapter}
+          className="text-xs text-brvm-green hover:underline flex items-center gap-1"
+        >
+          <Plus size={12} /> Ajouter chapitre
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        {course.chapters?.map(ch => (
+          <div key={ch.id} className="border border-brvm-border rounded-lg overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2 bg-slate-50">
+              <button
+                onClick={() => setExpandedChapter(expandedChapter === ch.id ? null : ch.id)}
+                className="flex items-center gap-2 flex-1 text-left"
+              >
+                <ChevronRight size={14} className={`text-brvm-muted transition-transform ${expandedChapter === ch.id ? 'rotate-90' : ''}`} />
+                <span className="text-sm font-medium text-brvm-text">{ch.title}</span>
+                <span className="text-xs text-brvm-muted">({ch.lessons?.length ?? 0} leçons)</span>
+              </button>
+              <div className="flex items-center gap-1">
+                <button onClick={() => onEditChapter(ch)} className={btnEdit}><Pencil size={13} /></button>
+                <button onClick={() => onDeleteChapter(ch.id)} className={btnDanger}><Trash2 size={13} /></button>
+              </div>
+            </div>
+
+            {expandedChapter === ch.id && (
+              <div className="p-3 space-y-2">
+                {ch.lessons?.map(l => (
+                  <div key={l.id} className="flex items-center gap-3 py-1.5 px-3 bg-white border border-brvm-border/50 rounded-lg">
+                    <span className="text-xs text-brvm-muted w-5 text-center">{l.order_num}</span>
+                    <span className="text-sm text-brvm-text flex-1">{l.title}</span>
+                    {l.video_id && <span className="text-xs font-mono text-brvm-subtext bg-slate-100 px-2 py-0.5 rounded">{l.video_id}</span>}
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => onEditLesson(l, ch.id)} className={btnEdit}><Pencil size={13} /></button>
+                      <button onClick={() => onDeleteLesson(l.id)} className={btnDanger}><Trash2 size={13} /></button>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  onClick={() => onAddLesson(ch.id)}
+                  className="text-xs text-brvm-green hover:underline flex items-center gap-1 mt-2"
+                >
+                  <Plus size={12} /> Ajouter leçon
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {(!course.chapters || course.chapters.length === 0) && (
+          <p className="text-brvm-muted text-xs text-center py-4">Aucun chapitre</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Tab Formations ───────────────────────────────────────────────────────────
 function TabFormations() {
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
-  const [expandedCourse, setExpandedCourse] = useState<number | null>(null)
-  const [expandedChapter, setExpandedChapter] = useState<number | null>(null)
+  const [structureOpen, setStructureOpen] = useState<number | null>(null)
 
   // Modals
   const [courseModal, setCourseModal] = useState<{ open: boolean; data: Partial<Course> }>({ open: false, data: {} })
@@ -127,7 +236,6 @@ function TabFormations() {
     try {
       setLoading(true)
       const data = await eApi.getCourses()
-      // data comes in the format with chapters already nested (from the courses endpoint)
       setCourses(data.map((c: any) => ({
         ...c,
         chapters: c.chapters?.map((ch: any) => ({
@@ -135,7 +243,6 @@ function TabFormations() {
           course_id: c.id,
           lessons: ch.lessons?.map((l: any) => ({
             ...l,
-            // parse the composite id back if needed
             course_id: c.id,
             chapter_id: ch.id,
           })) || [],
@@ -208,136 +315,201 @@ function TabFormations() {
     load()
   }
 
+  // helpers for structure panel callbacks
+  const openAddChapter = (courseId: number, chaptersLen: number) => {
+    setChapterModal({ open: true, courseId, data: { order_num: chaptersLen + 1 } })
+  }
+  const openEditChapter = (courseId: number, ch: Chapter) => {
+    setChapterModal({ open: true, courseId, data: { ...ch } })
+  }
+  const openAddLesson = (courseId: number, chapterId: number, lessonsLen: number) => {
+    setLessonModal({ open: true, courseId, chapterId, data: { order_num: lessonsLen + 1 } })
+  }
+  const openEditLesson = (courseId: number, chapterId: number, l: Lesson) => {
+    setLessonModal({ open: true, courseId, chapterId, data: { ...l } })
+  }
+
   if (loading) return <p className="text-brvm-muted text-sm text-center py-12">Chargement…</p>
+
+  const activeCourse = structureOpen !== null ? courses.find(c => c.id === structureOpen) : null
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-bold text-brvm-text">Formations ({courses.length})</h2>
-        <button onClick={() => setCourseModal({ open: true, data: { level: 'beginner', is_paid: false, price: 0 } })} className={btnPrimary}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-bold text-brvm-text text-base">Formations ({courses.length})</h2>
+        <button
+          onClick={() => setCourseModal({ open: true, data: { level: 'beginner', is_paid: false, is_active: true, price: 0 } })}
+          className={btnPrimary}
+        >
           <span className="flex items-center gap-1.5"><Plus size={14} /> Nouvelle formation</span>
         </button>
       </div>
 
-      <div className="space-y-3">
-        {courses.map(course => (
-          <div key={course.id} className="bg-white border border-brvm-border rounded-xl overflow-hidden shadow-sm">
-            {/* Course header */}
-            <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-brvm-border">
-              <button onClick={() => setExpandedCourse(expandedCourse === course.id ? null : course.id)} className="flex items-center gap-2 flex-1 text-left">
-                <ChevronDown size={16} className={`text-brvm-muted transition-transform ${expandedCourse === course.id ? 'rotate-180' : ''}`} />
-                <div>
-                  <Link to={`/admin/education/${course.id}`} className="font-semibold text-brvm-text text-sm hover:text-brvm-green transition-colors">
-                    {course.title}
-                  </Link>
-                  <span className="ml-2 text-xs text-brvm-muted">
-                    {course.level} · {course.is_paid ? `${course.price?.toLocaleString('fr-FR')} FCFA` : 'Gratuit'}
+      {/* Card grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {courses.map(course => {
+          const totalLessons = course.chapters?.reduce((sum, ch) => sum + (ch.lessons?.length ?? 0), 0) ?? 0
+          const isStructureOpen = structureOpen === course.id
+
+          return (
+            <div
+              key={course.id}
+              className={`bg-white rounded-2xl shadow-sm border transition-shadow hover:shadow-md overflow-hidden ${
+                isStructureOpen ? 'border-brvm-green/40 shadow-md' : 'border-brvm-border'
+              }`}
+            >
+              {/* Card header */}
+              <div className="px-4 pt-4 pb-3 flex items-center gap-2 flex-wrap">
+                <LevelBadge level={course.level} />
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${course.is_active ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-500'}`}>
+                  {course.is_active ? 'Actif' : 'Inactif'}
+                </span>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${course.is_paid ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'}`}>
+                  {course.is_paid ? 'Premium' : 'Gratuit'}
+                </span>
+              </div>
+
+              {/* Card body */}
+              <div className="px-4 pb-3">
+                <h3 className="font-bold text-brvm-text text-base leading-snug mb-1">{course.title}</h3>
+                {course.description && (
+                  <p className="text-brvm-subtext text-xs leading-relaxed line-clamp-2">{course.description}</p>
+                )}
+              </div>
+
+              {/* Card footer */}
+              <div className="px-4 pb-3 flex items-center gap-4 text-xs text-brvm-muted">
+                <span className="flex items-center gap-1">
+                  <Layers size={12} />
+                  {course.chapters?.length ?? 0} chapitres
+                </span>
+                <span className="flex items-center gap-1">
+                  <GraduationCap size={12} />
+                  {totalLessons} leçons
+                </span>
+                {course.is_paid && course.price != null && (
+                  <span className="flex items-center gap-1 text-amber-600 font-semibold">
+                    <DollarSign size={12} />
+                    {course.price.toLocaleString('fr-FR')} FCFA
                   </span>
-                </div>
-              </button>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setCourseModal({ open: true, data: { ...course } })} className={btnEdit} title="Modifier">
-                  <Pencil size={14} />
+                )}
+              </div>
+
+              {/* Card actions */}
+              <div className="px-4 pb-4 flex items-center gap-2 border-t border-brvm-border/60 pt-3">
+                <button
+                  onClick={() => setCourseModal({ open: true, data: { ...course } })}
+                  className="flex items-center gap-1.5 text-xs font-medium text-brvm-subtext hover:text-brvm-text bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <Pencil size={12} /> Modifier
                 </button>
-                <button onClick={() => deleteCourse(course.id)} className={btnDanger} title="Désactiver">
-                  <Trash2 size={14} />
+                <button
+                  onClick={() => deleteCourse(course.id)}
+                  className="flex items-center gap-1.5 text-xs font-medium text-brvm-red hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <Trash2 size={12} /> Supprimer
+                </button>
+                <button
+                  onClick={() => setStructureOpen(isStructureOpen ? null : course.id)}
+                  className={`ml-auto flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                    isStructureOpen
+                      ? 'bg-brvm-green/10 text-brvm-green'
+                      : 'bg-slate-50 hover:bg-slate-100 text-brvm-subtext hover:text-brvm-text'
+                  }`}
+                >
+                  <ChevronDown size={12} className={`transition-transform ${isStructureOpen ? 'rotate-180' : ''}`} />
+                  Structure
                 </button>
               </div>
             </div>
+          )
+        })}
 
-            {/* Chapters */}
-            {expandedCourse === course.id && (
-              <div className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-brvm-subtext uppercase tracking-wider">Chapitres ({course.chapters?.length ?? 0})</p>
-                  <button
-                    onClick={() => setChapterModal({ open: true, courseId: course.id, data: { order_num: (course.chapters?.length ?? 0) + 1 } })}
-                    className="text-xs text-brvm-green hover:underline flex items-center gap-1"
-                  >
-                    <Plus size={12} /> Ajouter chapitre
-                  </button>
-                </div>
-
-                {course.chapters?.map(ch => (
-                  <div key={ch.id} className="border border-brvm-border rounded-lg overflow-hidden">
-                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50">
-                      <button onClick={() => setExpandedChapter(expandedChapter === ch.id ? null : ch.id)} className="flex items-center gap-2 flex-1 text-left">
-                        <ChevronRight size={14} className={`text-brvm-muted transition-transform ${expandedChapter === ch.id ? 'rotate-90' : ''}`} />
-                        <span className="text-sm font-medium text-brvm-text">{ch.title}</span>
-                        <span className="text-xs text-brvm-muted">({ch.lessons?.length ?? 0} leçons)</span>
-                      </button>
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setChapterModal({ open: true, courseId: course.id, data: { ...ch } })} className={btnEdit}>
-                          <Pencil size={13} />
-                        </button>
-                        <button onClick={() => deleteChapter(ch.id)} className={btnDanger}>
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {expandedChapter === ch.id && (
-                      <div className="p-3 space-y-2">
-                        {ch.lessons?.map(l => (
-                          <div key={l.id} className="flex items-center gap-3 py-1.5 px-3 bg-white border border-brvm-border/50 rounded-lg">
-                            <span className="text-xs text-brvm-muted w-5 text-center">{l.order_num}</span>
-                            <span className="text-sm text-brvm-text flex-1">{l.title}</span>
-                            {l.video_id && <span className="text-xs font-mono text-brvm-subtext bg-slate-100 px-2 py-0.5 rounded">{l.video_id}</span>}
-                            <div className="flex items-center gap-1">
-                              <button onClick={() => setLessonModal({ open: true, courseId: course.id, chapterId: ch.id, data: { ...l } })} className={btnEdit}>
-                                <Pencil size={13} />
-                              </button>
-                              <button onClick={() => deleteLesson(typeof l.id === 'number' ? l.id : parseInt(String(l.id)))} className={btnDanger}>
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                        <button
-                          onClick={() => setLessonModal({ open: true, courseId: course.id, chapterId: ch.id, data: { order_num: (ch.lessons?.length ?? 0) + 1 } })}
-                          className="text-xs text-brvm-green hover:underline flex items-center gap-1 mt-2"
-                        >
-                          <Plus size={12} /> Ajouter leçon
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+        {courses.length === 0 && (
+          <div className="col-span-2 text-center py-16 text-brvm-muted text-sm">
+            Aucune formation. Créez la première !
           </div>
-        ))}
+        )}
       </div>
+
+      {/* Structure panel (inline, below grid) */}
+      {activeCourse && (
+        <div className="mt-6 bg-white rounded-2xl border border-brvm-green/30 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-bold text-brvm-text text-sm flex items-center gap-2">
+              <Layers size={15} className="text-brvm-green" />
+              Structure — {activeCourse.title}
+            </h3>
+            <button onClick={() => setStructureOpen(null)} className="text-brvm-muted hover:text-brvm-text text-lg leading-none transition-colors">×</button>
+          </div>
+          <StructurePanel
+            course={activeCourse}
+            onAddChapter={() => openAddChapter(activeCourse.id, activeCourse.chapters?.length ?? 0)}
+            onEditChapter={(ch) => openEditChapter(activeCourse.id, ch)}
+            onDeleteChapter={deleteChapter}
+            onAddLesson={(chapterId) => {
+              const ch = activeCourse.chapters?.find(c => c.id === chapterId)
+              openAddLesson(activeCourse.id, chapterId, ch?.lessons?.length ?? 0)
+            }}
+            onEditLesson={(l, chapterId) => openEditLesson(activeCourse.id, chapterId, l)}
+            onDeleteLesson={deleteLesson}
+          />
+        </div>
+      )}
 
       {/* Modal Course */}
       {courseModal.open && (
         <Modal title={courseModal.data.id ? 'Modifier la formation' : 'Nouvelle formation'} onClose={() => setCourseModal({ open: false, data: {} })}>
           <Field label="Titre">
-            <input className={inputCls} value={courseModal.data.title || ''} onChange={e => setCourseModal(m => ({ ...m, data: { ...m.data, title: e.target.value } }))} placeholder="Titre de la formation" />
+            <input
+              className={inputCls}
+              value={courseModal.data.title || ''}
+              onChange={e => setCourseModal(m => ({ ...m, data: { ...m.data, title: e.target.value } }))}
+              placeholder="Titre de la formation"
+            />
           </Field>
           <Field label="Description">
-            <textarea className={inputCls} rows={3} value={courseModal.data.description || ''} onChange={e => setCourseModal(m => ({ ...m, data: { ...m.data, description: e.target.value } }))} placeholder="Description..." />
+            <textarea
+              className={inputCls}
+              rows={3}
+              value={courseModal.data.description || ''}
+              onChange={e => setCourseModal(m => ({ ...m, data: { ...m.data, description: e.target.value } }))}
+              placeholder="Description..."
+            />
           </Field>
           <Field label="Niveau">
-            <select className={inputCls} value={courseModal.data.level || 'beginner'} onChange={e => setCourseModal(m => ({ ...m, data: { ...m.data, level: e.target.value as any } }))}>
+            <select
+              className={inputCls}
+              value={courseModal.data.level || 'beginner'}
+              onChange={e => setCourseModal(m => ({ ...m, data: { ...m.data, level: e.target.value as Course['level'] } }))}
+            >
               <option value="beginner">Débutant</option>
               <option value="intermediate">Intermédiaire</option>
               <option value="advanced">Avancé</option>
               <option value="coaching">Coaching</option>
             </select>
           </Field>
-          <div className="flex items-center gap-3 mb-4">
-            <Field label="Payant">
-              <input type="checkbox" checked={!!courseModal.data.is_paid} onChange={e => setCourseModal(m => ({ ...m, data: { ...m.data, is_paid: e.target.checked } }))} className="w-4 h-4" />
+          <Toggle
+            label="Formation active"
+            checked={!!courseModal.data.is_active}
+            onChange={v => setCourseModal(m => ({ ...m, data: { ...m.data, is_active: v } }))}
+          />
+          <Toggle
+            label="Formation payante"
+            checked={!!courseModal.data.is_paid}
+            onChange={v => setCourseModal(m => ({ ...m, data: { ...m.data, is_paid: v } }))}
+          />
+          {courseModal.data.is_paid && (
+            <Field label="Prix (FCFA)">
+              <input
+                className={inputCls}
+                type="number"
+                value={courseModal.data.price || 0}
+                onChange={e => setCourseModal(m => ({ ...m, data: { ...m.data, price: Number(e.target.value) } }))}
+              />
             </Field>
-            {courseModal.data.is_paid && (
-              <div className="flex-1">
-                <Field label="Prix (FCFA)">
-                  <input className={inputCls} type="number" value={courseModal.data.price || 0} onChange={e => setCourseModal(m => ({ ...m, data: { ...m.data, price: Number(e.target.value) } }))} />
-                </Field>
-              </div>
-            )}
-          </div>
+          )}
           <div className="flex gap-3 justify-end">
             <button onClick={() => setCourseModal({ open: false, data: {} })} className="px-4 py-2 rounded-lg border border-brvm-border text-sm text-brvm-muted hover:text-brvm-text transition-colors">Annuler</button>
             <button onClick={saveCourse} className={btnPrimary}>Enregistrer</button>
@@ -349,10 +521,20 @@ function TabFormations() {
       {chapterModal.open && (
         <Modal title={chapterModal.data.id ? 'Modifier le chapitre' : 'Nouveau chapitre'} onClose={() => setChapterModal({ open: false, courseId: null, data: {} })}>
           <Field label="Titre">
-            <input className={inputCls} value={chapterModal.data.title || ''} onChange={e => setChapterModal(m => ({ ...m, data: { ...m.data, title: e.target.value } }))} placeholder="Titre du chapitre" />
+            <input
+              className={inputCls}
+              value={chapterModal.data.title || ''}
+              onChange={e => setChapterModal(m => ({ ...m, data: { ...m.data, title: e.target.value } }))}
+              placeholder="Titre du chapitre"
+            />
           </Field>
           <Field label="Ordre">
-            <input className={inputCls} type="number" value={chapterModal.data.order_num || 0} onChange={e => setChapterModal(m => ({ ...m, data: { ...m.data, order_num: Number(e.target.value) } }))} />
+            <input
+              className={inputCls}
+              type="number"
+              value={chapterModal.data.order_num || 0}
+              onChange={e => setChapterModal(m => ({ ...m, data: { ...m.data, order_num: Number(e.target.value) } }))}
+            />
           </Field>
           <div className="flex gap-3 justify-end">
             <button onClick={() => setChapterModal({ open: false, courseId: null, data: {} })} className="px-4 py-2 rounded-lg border border-brvm-border text-sm text-brvm-muted hover:text-brvm-text transition-colors">Annuler</button>
@@ -365,13 +547,28 @@ function TabFormations() {
       {lessonModal.open && (
         <Modal title={lessonModal.data.id ? 'Modifier la leçon' : 'Nouvelle leçon'} onClose={() => setLessonModal({ open: false, courseId: null, chapterId: null, data: {} })}>
           <Field label="Titre">
-            <input className={inputCls} value={lessonModal.data.title || ''} onChange={e => setLessonModal(m => ({ ...m, data: { ...m.data, title: e.target.value } }))} placeholder="Titre de la leçon" />
+            <input
+              className={inputCls}
+              value={lessonModal.data.title || ''}
+              onChange={e => setLessonModal(m => ({ ...m, data: { ...m.data, title: e.target.value } }))}
+              placeholder="Titre de la leçon"
+            />
           </Field>
           <Field label="YouTube Video ID">
-            <input className={inputCls} value={lessonModal.data.video_id || ''} onChange={e => setLessonModal(m => ({ ...m, data: { ...m.data, video_id: e.target.value } }))} placeholder="ex: dQw4w9WgXcQ" />
+            <input
+              className={inputCls}
+              value={lessonModal.data.video_id || ''}
+              onChange={e => setLessonModal(m => ({ ...m, data: { ...m.data, video_id: e.target.value } }))}
+              placeholder="ex: dQw4w9WgXcQ"
+            />
           </Field>
           <Field label="Ordre">
-            <input className={inputCls} type="number" value={lessonModal.data.order_num || 0} onChange={e => setLessonModal(m => ({ ...m, data: { ...m.data, order_num: Number(e.target.value) } }))} />
+            <input
+              className={inputCls}
+              type="number"
+              value={lessonModal.data.order_num || 0}
+              onChange={e => setLessonModal(m => ({ ...m, data: { ...m.data, order_num: Number(e.target.value) } }))}
+            />
           </Field>
           <div className="flex gap-3 justify-end">
             <button onClick={() => setLessonModal({ open: false, courseId: null, chapterId: null, data: {} })} className="px-4 py-2 rounded-lg border border-brvm-border text-sm text-brvm-muted hover:text-brvm-text transition-colors">Annuler</button>
@@ -551,16 +748,7 @@ export default function AdminEducation() {
   ]
 
   return (
-    <div className="min-h-screen bg-brvm-bg">
-      {/* Header */}
-      <div className="bg-white border-b border-brvm-border px-6 py-4 flex items-center gap-4">
-        <Link to="/admin" className="flex items-center gap-2 text-brvm-muted hover:text-brvm-text transition-colors text-sm">
-          <ArrowLeft size={16} /> Retour Admin
-        </Link>
-        <span className="text-brvm-border">|</span>
-        <h1 className="font-bold text-brvm-text text-lg">Gérer les formations</h1>
-      </div>
-
+    <div className="bg-brvm-bg">
       <div className="max-w-5xl mx-auto px-6 py-6">
         {/* Tabs */}
         <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-6 w-fit">
