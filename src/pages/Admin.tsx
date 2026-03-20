@@ -17,7 +17,7 @@ import AdminResume          from './AdminResume'
 import AdminRecommandations from './AdminRecommandations'
 import AdminRapports        from './AdminRapports'
 import AdminEducation       from './AdminEducation'
-import AssetManagers        from './AssetManagers'
+import AdminAssetManagers   from './AdminAssetManagers'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -942,7 +942,7 @@ export default function Admin() {
           {module === 'recommandations' && <AdminRecommandations />}
           {module === 'rapports'        && <AdminRapports />}
           {module === 'education'       && <AdminEducation />}
-          {module === 'assetmanagers'   && <AssetManagers />}
+          {module === 'assetmanagers'   && <AdminAssetManagers />}
           {module === 'bulletin'        && <ModuleBulletin />}
           {module === 'historique'      && <DataImport />}
         </div>

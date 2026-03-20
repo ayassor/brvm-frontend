@@ -878,7 +878,7 @@ export default function AssetManagers() {
             name: s.name, country: s.country, code: s.country_code,
             address: s.address, phone: s.phone, email: s.email,
             website: s.website, partnerSGI: s.partner_sgi,
-            funds: s.funds.map(f => ({ name: f.name, cat: f.cat as any, vlCurrent: f.vlCurrent, perfWeek: f.perfWeek })),
+            funds: s.funds.map(f => ({ name: f.name, cat: f.cat as any, vlCurrent: f.vlCurrent ?? null, perfWeek: f.perfWeek ?? null })),
           })))
         }
         setApiLoaded(true)
