@@ -49,11 +49,14 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
 
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-8 h-8 bg-brvm-green rounded-lg flex items-center justify-center">
-              <TrendingUp size={18} className="text-white" />
+          <Link to="/" className="flex items-center gap-2 flex-shrink-0 group">
+            <div className="relative w-8 h-8 flex-shrink-0">
+              <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-md shadow-emerald-200 group-hover:shadow-emerald-300 transition-shadow" />
+              <div className="absolute inset-0 rounded-lg flex items-center justify-center">
+                <TrendingUp size={16} className="text-white" strokeWidth={2.5} />
+              </div>
             </div>
-            <span className="text-brvm-text font-bold text-lg tracking-tight">
+            <span className="text-brvm-text font-extrabold text-[17px] tracking-tight">
               Afri<span className="text-brvm-green">vest</span>
             </span>
           </Link>

@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom'
 import {
   LayoutDashboard, Upload, FileText, ArrowLeft, Database,
   Copy, Check, Download, Eye, EyeOff, Trash2, RefreshCw,
-  ChevronRight, AlertCircle, CheckCircle2, FileSpreadsheet, Zap,
+  ChevronRight, AlertCircle, CheckCircle2, FileSpreadsheet,
   Building2, BarChart2, TrendingUp, Newspaper, MessageSquare, Target, BookOpen,
+  GraduationCap, Users, Settings2,
 } from 'lucide-react'
 import * as pdfjsLib from 'pdfjs-dist'
 import DataImport from './DataImport'
@@ -15,6 +16,8 @@ import AdminActualites      from './AdminActualites'
 import AdminResume          from './AdminResume'
 import AdminRecommandations from './AdminRecommandations'
 import AdminRapports        from './AdminRapports'
+import AdminEducation       from './AdminEducation'
+import AssetManagers        from './AssetManagers'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -24,7 +27,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 /* ══════════════════════════════════════════════════════════════
    TYPES
 ══════════════════════════════════════════════════════════════ */
-type Module = 'apercu' | 'societes' | 'fondamentaux' | 'dividendes' | 'bulletin' | 'historique' | 'actualites' | 'resume' | 'recommandations' | 'rapports' | 'education'
+type Module = 'apercu' | 'societes' | 'fondamentaux' | 'dividendes' | 'bulletin' | 'historique' | 'actualites' | 'resume' | 'recommandations' | 'rapports' | 'education' | 'assetmanagers'
 
 interface BulletinRow {
   id:            number
@@ -289,100 +292,126 @@ interface SidebarProps {
 }
 
 function Sidebar({ active, onChange }: SidebarProps) {
-  const dataItems: { id: Module; icon: React.ReactNode; label: string; sub: string }[] = [
-    { id: 'societes',     icon: <Building2      size={18} />, label: 'Sociétés',          sub: '47 valeurs BRVM' },
-    { id: 'fondamentaux', icon: <BarChart2       size={18} />, label: 'Fondamentaux',      sub: 'Données financières' },
-    { id: 'dividendes',   icon: <TrendingUp      size={18} />, label: 'Dividendes',        sub: 'Historique versements' },
+  type NavItem = { id: Module; icon: React.ReactNode; label: string; sub?: string }
+
+  const dataItems: NavItem[] = [
+    { id: 'societes',     icon: <Building2      size={16} />, label: 'Sociétés',          sub: '47 valeurs BRVM' },
+    { id: 'fondamentaux', icon: <BarChart2       size={16} />, label: 'Fondamentaux',      sub: 'Données financières' },
+    { id: 'dividendes',   icon: <TrendingUp      size={16} />, label: 'Dividendes',        sub: 'Historique versements' },
   ]
-  const contentItems: { id: Module; icon: React.ReactNode; label: string; sub: string }[] = [
-    { id: 'actualites',      icon: <Newspaper     size={18} />, label: 'Actualités',         sub: 'Créer & publier' },
-    { id: 'resume',          icon: <MessageSquare size={18} />, label: 'Résumé analytique',  sub: 'Texte exécutif & thèse' },
-    { id: 'recommandations', icon: <Target        size={18} />, label: 'Recommandations',    sub: 'Objectifs de cours' },
-    { id: 'rapports',        icon: <BookOpen      size={18} />, label: 'Rapports',           sub: 'Rapports financiers' },
+  const contentItems: NavItem[] = [
+    { id: 'actualites',      icon: <Newspaper     size={16} />, label: 'Actualités',         sub: 'Créer & publier' },
+    { id: 'resume',          icon: <MessageSquare size={16} />, label: 'Résumé analytique',  sub: 'Thèse exécutive' },
+    { id: 'recommandations', icon: <Target        size={16} />, label: 'Recommandations',    sub: 'Objectifs de cours' },
+    { id: 'rapports',        icon: <BookOpen      size={16} />, label: 'Rapports',           sub: 'Rapports financiers' },
   ]
-  const toolItems: { id: Module; icon: React.ReactNode; label: string; sub: string }[] = [
-    { id: 'bulletin',  icon: <FileText        size={18} />, label: 'Bulletin de la Cote', sub: 'PDF → SQL' },
-    { id: 'historique',icon: <FileSpreadsheet size={18} />, label: 'Import Historique',   sub: 'Excel / JSON / CSV' },
+  const platformItems: NavItem[] = [
+    { id: 'education',    icon: <GraduationCap size={16} />, label: 'Formations',           sub: 'Cours & leçons' },
+    { id: 'assetmanagers',icon: <Users         size={16} />, label: 'Soc. de gestion',     sub: 'SGI & SGO' },
+  ]
+  const toolItems: NavItem[] = [
+    { id: 'bulletin',  icon: <FileText        size={16} />, label: 'Bulletin de la Cote', sub: 'PDF → SQL' },
+    { id: 'historique',icon: <FileSpreadsheet size={16} />, label: 'Import Historique',   sub: 'Excel / JSON / CSV' },
   ]
 
-  const renderItem = (item: { id: Module; icon: React.ReactNode; label: string; sub: string }) => (
-    <button
-      key={item.id}
-      onClick={() => onChange(item.id)}
-      className={`w-full flex items-center gap-3 text-left transition-all group rounded-lg ${
-        active === item.id
-          ? 'bg-emerald-500/15 text-emerald-400 border-l-2 border-emerald-400 pl-[10px] pr-3 py-2.5'
-          : 'text-slate-400 hover:bg-white/5 hover:text-white px-3 py-2.5'
-      }`}
-    >
-      <span className={active === item.id ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300'}>
-        {item.icon}
-      </span>
-      <div className="min-w-0">
-        <p className="text-sm font-medium truncate">{item.label}</p>
-        <p className={`text-[10px] truncate ${active === item.id ? 'text-emerald-400/70' : 'text-slate-500'}`}>
-          {item.sub}
-        </p>
+  const renderItem = (item: NavItem) => {
+    const isActive = active === item.id
+    return (
+      <button
+        key={item.id}
+        onClick={() => onChange(item.id)}
+        className={`w-full flex items-center gap-2.5 text-left transition-all rounded-lg px-2.5 py-2 group ${
+          isActive
+            ? 'bg-emerald-500/15 text-emerald-300'
+            : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+        }`}
+      >
+        {/* Icon pill */}
+        <span className={`flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
+          isActive ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-500 group-hover:text-slate-300 bg-white/5'
+        }`}>
+          {item.icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className={`text-[13px] font-medium leading-tight truncate ${isActive ? 'text-emerald-200' : ''}`}>{item.label}</p>
+          {item.sub && (
+            <p className={`text-[10px] truncate leading-tight mt-0.5 ${isActive ? 'text-emerald-400/60' : 'text-slate-600 group-hover:text-slate-500'}`}>
+              {item.sub}
+            </p>
+          )}
+        </div>
+        {isActive && (
+          <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400 ml-auto" />
+        )}
+      </button>
+    )
+  }
+
+  const Section = ({ label, items }: { label: string; items: NavItem[] }) => (
+    <div>
+      <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-600 px-2.5 mb-1">{label}</p>
+      <div className="space-y-0.5">
+        {items.map(renderItem)}
       </div>
-      {active === item.id && <ChevronRight size={14} className="ml-auto text-emerald-400/50 flex-shrink-0" />}
-    </button>
+    </div>
   )
 
   return (
-    <aside className="w-64 flex-shrink-0 bg-[#0d1b2a] flex flex-col border-r border-white/5">
-      {/* Logo */}
-      <div className="p-5 border-b border-white/5">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center">
-            <Zap size={14} className="text-white" />
+    <aside className="w-60 flex-shrink-0 flex flex-col border-r border-white/5" style={{ background: 'linear-gradient(180deg, #0f1e2e 0%, #0a1520 100%)' }}>
+
+      {/* ── Logo ── */}
+      <div className="px-4 py-5 border-b border-white/5">
+        <div className="flex items-center gap-2.5">
+          {/* Icon mark */}
+          <div className="relative w-9 h-9 flex-shrink-0">
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-700 opacity-90 shadow-lg shadow-emerald-900/50" />
+            <div className="absolute inset-0 rounded-xl flex items-center justify-center">
+              <TrendingUp size={17} className="text-white drop-shadow" />
+            </div>
           </div>
-          <span className="font-bold text-white text-base">Afrivest</span>
-          <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded border border-emerald-500/30">
-            ADMIN
-          </span>
+          {/* Wordmark */}
+          <div>
+            <p className="font-extrabold text-white text-[15px] tracking-tight leading-none">
+              Afri<span className="text-emerald-400">vest</span>
+            </p>
+            <p className="text-[9px] font-semibold tracking-[0.18em] text-slate-500 uppercase mt-0.5">
+              Admin
+            </p>
+          </div>
+          {/* Status dot */}
+          <div className="ml-auto flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow shadow-emerald-400/50 animate-pulse" />
+            <span className="text-[9px] text-slate-600 font-medium">Live</span>
+          </div>
         </div>
-        <p className="text-slate-500 text-xs mt-1">Espace administration</p>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 p-3 overflow-y-auto space-y-4">
+      {/* ── Nav ── */}
+      <nav className="flex-1 px-2.5 py-4 overflow-y-auto space-y-5">
         {/* Overview */}
         <div>
-          {renderItem({ id: 'apercu', icon: <LayoutDashboard size={18} />, label: "Vue d'ensemble", sub: 'Dashboard' })}
+          {renderItem({ id: 'apercu', icon: <LayoutDashboard size={16} />, label: "Vue d'ensemble", sub: 'Dashboard global' })}
         </div>
 
-        {/* Data group */}
-        <div>
-          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-600 px-3 mb-1.5">Données</p>
-          <div className="space-y-0.5">
-            {dataItems.map(renderItem)}
-          </div>
-        </div>
-
-        {/* Content group */}
-        <div>
-          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-600 px-3 mb-1.5">Contenu</p>
-          <div className="space-y-0.5">
-            {contentItems.map(renderItem)}
-          </div>
-        </div>
-
-        {/* Tools group */}
-        <div>
-          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-600 px-3 mb-1.5">Outils</p>
-          <div className="space-y-0.5">
-            {toolItems.map(renderItem)}
-          </div>
-        </div>
+        <Section label="Données marché" items={dataItems} />
+        <Section label="Contenu éditorial" items={contentItems} />
+        <Section label="Plateforme" items={platformItems} />
+        <Section label="Outils" items={toolItems} />
       </nav>
 
-      {/* Back link */}
-      <div className="p-4 border-t border-white/5">
+      {/* ── Footer ── */}
+      <div className="px-3 py-4 border-t border-white/5 space-y-1">
+        <Link
+          to="/admin"
+          className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-white/5 text-[12px] transition-colors"
+        >
+          <Settings2 size={14} /> Paramètres admin
+        </Link>
         <Link
           to="/"
-          className="flex items-center gap-2 text-slate-500 hover:text-white text-sm transition-colors"
+          className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-white/5 text-[12px] transition-colors"
         >
-          <ArrowLeft size={15} />
+          <ArrowLeft size={14} />
           Retour au site
         </Link>
       </div>
@@ -848,26 +877,7 @@ function ModuleBulletin() {
   )
 }
 
-/* ══════════════════════════════════════════════════════════════
-   MODULE: EDUCATION REDIRECT
-══════════════════════════════════════════════════════════════ */
-function EducationRedirect() {
-  return (
-    <div className="p-8 flex flex-col items-center justify-center min-h-[60vh]">
-      <BookOpen size={48} className="text-brvm-green mb-4 opacity-80" />
-      <h2 className="text-xl font-bold text-brvm-text mb-2">Gestion des formations</h2>
-      <p className="text-brvm-subtext text-sm mb-6 text-center max-w-md">
-        Gérez vos cours, chapitres, leçons, articles et glossaire depuis la page dédiée.
-      </p>
-      <a
-        href="/admin/education"
-        className="bg-brvm-green text-white font-semibold px-6 py-3 rounded-xl text-sm hover:bg-brvm-green/90 transition-colors shadow-sm"
-      >
-        Ouvrir la gestion des formations →
-      </a>
-    </div>
-  )
-}
+/* EducationRedirect — supprimé, AdminEducation est monté directement */
 
 /* ══════════════════════════════════════════════════════════════
    TOPBAR BREADCRUMB LABELS
@@ -882,6 +892,7 @@ const MODULE_LABELS: Record<Module, string> = {
   recommandations: 'Recommandations',
   rapports:        'Rapports financiers',
   education:       'Formations',
+  assetmanagers:   'Sociétés de gestion',
   bulletin:        'Bulletin de la Cote',
   historique:      'Import Historique',
 }
@@ -930,7 +941,8 @@ export default function Admin() {
           {module === 'resume'          && <AdminResume />}
           {module === 'recommandations' && <AdminRecommandations />}
           {module === 'rapports'        && <AdminRapports />}
-          {module === 'education'       && <EducationRedirect />}
+          {module === 'education'       && <AdminEducation />}
+          {module === 'assetmanagers'   && <AssetManagers />}
           {module === 'bulletin'        && <ModuleBulletin />}
           {module === 'historique'      && <DataImport />}
         </div>
