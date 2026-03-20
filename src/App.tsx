@@ -4,10 +4,12 @@ import { store } from './store'
 import Layout from './components/layout/Layout'
 import LayoutFull from './components/layout/LayoutFull'
 import PrivateRoute from './components/common/PrivateRoute'
+import AdminRoute from './components/common/AdminRoute'
 import BrvmSimulator from './pages/BrvmSimulator'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import AdminLogin from './pages/AdminLogin'
 import Dashboard from './pages/Dashboard'
 import Market from './pages/Market'
 import CompanyDetail from './pages/CompanyDetail'
@@ -34,6 +36,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
           <Route element={<Layout />}>
             <Route path="/" element={<Home />} />
             <Route path="/market" element={<Market />} />
@@ -59,9 +62,9 @@ export default function App() {
             />
             <Route path="/portfolio" element={<Portfolio />} />
           </Route>
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/admin/education" element={<AdminEducation />} />
-          <Route path="/admin/education/:courseId" element={<AdminEducationCourse />} />
+          <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+          <Route path="/admin/education" element={<AdminRoute><AdminEducation /></AdminRoute>} />
+          <Route path="/admin/education/:courseId" element={<AdminRoute><AdminEducationCourse /></AdminRoute>} />
           <Route element={<LayoutFull />}>
             <Route path="/simulator/portfolio" element={<BrvmSimulator />} />
           </Route>

@@ -47,10 +47,12 @@ api.interceptors.response.use(
       isRefreshing = true
 
       const refreshToken = localStorage.getItem('refreshToken')
+      const isAdminPath = window.location.pathname.startsWith('/admin')
+
       if (!refreshToken) {
         isRefreshing = false
         localStorage.clear()
-        window.location.href = '/login'
+        window.location.href = isAdminPath ? '/admin/login' : '/login'
         return Promise.reject(error)
       }
 
@@ -65,7 +67,7 @@ api.interceptors.response.use(
       } catch (err) {
         processQueue(err, null)
         localStorage.clear()
-        window.location.href = '/login'
+        window.location.href = isAdminPath ? '/admin/login' : '/login'
         return Promise.reject(err)
       } finally {
         isRefreshing = false
