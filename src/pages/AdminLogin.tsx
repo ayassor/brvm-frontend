@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { TrendingUp, Shield, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch'
-import { login, clearError } from '../store/slices/authSlice'
+import { login, logout, clearError } from '../store/slices/authSlice'
 
 export default function AdminLogin() {
   const dispatch = useAppDispatch()
@@ -21,6 +21,8 @@ export default function AdminLogin() {
       if (user.role === 'admin') {
         navigate(from, { replace: true })
       } else {
+        // Non-admin user: immediately logout to clear token from localStorage
+        dispatch(logout())
         setLocalError('Accès refusé : vous n\'avez pas les droits administrateur.')
       }
     }
