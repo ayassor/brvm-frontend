@@ -1,13 +1,17 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   BookOpen, FileText, Search, Lock, PlayCircle,
   ChevronDown, ChevronLeft, ChevronRight, ArrowLeft,
-  Clock, TrendingUp, PieChart, Users, X, Star,
+  Clock, TrendingUp, PieChart, Users, X, Star, GraduationCap, Link,
 } from 'lucide-react'
 import { educationApi } from '../api/education.api'
 import type { CourseFromAPI } from '../api/education.api'
 import type { Article, GlossaryTerm } from '../types'
 import Spinner from '../components/common/Spinner'
+import CustomYTPlayer from '../components/education/CustomYTPlayer'
+import PasswordModal from '../components/education/PasswordModal'
+import { isCourseUnlocked } from '../api/education.api'
 
 // ─── Data types ───────────────────────────────────────────────────────────────
 interface LessonPart { label: string; videoId: string }
@@ -21,6 +25,8 @@ interface CourseEntry {
   description: string
   level: 'beginner' | 'intermediate' | 'advanced' | 'coaching'
   is_paid: boolean
+  has_access?: boolean
+  has_password?: boolean
   price: number | null
   isCoaching?: boolean
   chapters: Chapter[]
@@ -93,6 +99,16 @@ const COURSE1_CHAPTERS: Chapter[] = [
   },
 ]
 
+// ─── Course 3 — Session de formation complète sur la bourse ──────────────────
+const COURSE3_CHAPTERS: Chapter[] = [
+  {
+    id: 1, title: 'Session de formation complète',
+    lessons: [
+      { id: 'sf-l1', title: 'Session de formation complète sur la bourse', videoId: 'xJJHksGZ0_o' },
+    ],
+  },
+]
+
 // ─── Course 2 — Comprendre et investir dans les FCP ───────────────────────────
 const COURSE2_CHAPTERS: Chapter[] = [
   {
@@ -149,6 +165,15 @@ const COURSES_CATALOG: CourseEntry[] = [
     chapters: COURSE2_CHAPTERS,
   },
   {
+    id: 10,
+    title: 'Session de formation complète sur la bourse',
+    description: "Une session de formation intégrale pour maîtriser les fondamentaux de la bourse, de l'analyse financière et des stratégies d'investissement.",
+    level: 'intermediate',
+    is_paid: false,
+    price: null,
+    chapters: COURSE3_CHAPTERS,
+  },
+  {
     id: 3,
     title: 'Coaching Personnalisé',
     description: "Un accompagnement 100 % sur mesure selon vos objectifs, votre budget et votre niveau. Tarif adapté à chaque profil.",
@@ -166,6 +191,7 @@ const CARD_GRADIENT: Record<number, string> = {
   1: 'linear-gradient(135deg, #3b82f6 0%, #4f46e5 55%, #4338ca 100%)',
   2: 'linear-gradient(135deg, #f59e0b 0%, #d97706 55%, #b45309 100%)',
   3: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 55%, #6d28d9 100%)',
+  10: 'linear-gradient(135deg, #ef4444 0%, #dc2626 55%, #b91c1c 100%)',
 }
 
 function CardIcon({ id }: { id: number }) {
@@ -173,6 +199,7 @@ function CardIcon({ id }: { id: number }) {
   if (id === 0) return <BookOpen size={38} className={cls} strokeWidth={1.5} />
   if (id === 1) return <TrendingUp size={38} className={cls} strokeWidth={1.5} />
   if (id === 2) return <PieChart size={38} className={cls} strokeWidth={1.5} />
+  if (id === 10) return <GraduationCap size={38} className={cls} strokeWidth={1.5} />
   return <Users size={38} className={cls} strokeWidth={1.5} />
 }
 
@@ -350,8 +377,19 @@ function apiCourseToEntry(c: CourseFromAPI): CourseEntry {
   }
 }
 
+// Composant cadenas mot de passe sur la carte
+function PasswordBadge() {
+  return (
+    <div className="absolute top-3.5 right-3.5 flex items-center gap-1 bg-white text-slate-700 font-extrabold px-3 py-1.5 rounded-xl shadow-md border border-slate-200">
+      <Lock size={10} className="flex-shrink-0" />
+      <span className="text-xs tracking-wide">Protégé</span>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function Education() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [tab, setTab]           = useState<Tab>('courses')
   const [courses, setCourses]   = useState<CourseEntry[]>([])
   const [articles, setArticles] = useState<Article[]>([])
@@ -365,17 +403,56 @@ export default function Education() {
   const [expandedChapters, setExpandedChapters] = useState<Set<number>>(new Set())
   const [activePart, setActivePart]             = useState(0)
   const [showCoachingModal, setShowCoachingModal] = useState(false)
+  const [passwordModal, setPasswordModal]         = useState<{ courseId: number; courseTitle: string } | null>(null)
+  const [unlockedIds, setUnlockedIds]             = useState<Set<number>>(new Set())
   const playerRef = useRef<HTMLDivElement>(null)
+  const urlInitialized = useRef(false)
 
   useEffect(() => {
     Promise.all([educationApi.courses(), educationApi.articles(), educationApi.glossary()])
       .then(([c, a, g]) => {
-        setCourses(c.map(apiCourseToEntry))
+        const mapped = c.map(apiCourseToEntry)
+        setCourses(mapped)
         setArticles(a)
         setGlossary(g)
+
+        // Lire les query params à l'init (une seule fois)
+        if (!urlInitialized.current) {
+          urlInitialized.current = true
+          const paramCourseId = searchParams.get('courseId')
+          const paramLessonId = searchParams.get('lessonId')
+          if (paramCourseId) {
+            const courseId = parseInt(paramCourseId, 10)
+            // Chercher dans les cours API + catalog statique
+            const allCourses = mapped
+            const course = allCourses.find((co) => co.id === courseId)
+            if (course && !course.isCoaching) {
+              const allFlat = flattenLessons(course.chapters)
+              const lessonId = paramLessonId && allFlat.find(l => l.id === paramLessonId)
+                ? paramLessonId
+                : course.chapters[0]?.lessons[0]?.id ?? ''
+              const lesson = allFlat.find(l => l.id === lessonId)
+              setSelectedCourseId(courseId)
+              setSelectedId(lessonId)
+              setExpandedChapters(new Set([lesson?.chapterId ?? course.chapters[0]?.id ?? 1]))
+            }
+          }
+        }
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Synchroniser l'URL quand on change de cours/leçon
+  useEffect(() => {
+    if (!urlInitialized.current) return
+    if (selectedCourseId !== null) {
+      const params: Record<string, string> = { courseId: String(selectedCourseId) }
+      if (selectedId) params.lessonId = selectedId
+      setSearchParams(params, { replace: true })
+    } else {
+      setSearchParams({}, { replace: true })
+    }
+  }, [selectedCourseId, selectedId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedCourse = useMemo(
     () => courses.find((c) => c.id === selectedCourseId) ?? null,
@@ -395,6 +472,11 @@ export default function Education() {
 
   const handleCardClick = (course: CourseEntry) => {
     if (course.isCoaching) { setShowCoachingModal(true); return }
+    // Cours protégé par mot de passe et pas encore déverrouillé
+    if (course.has_password && !isCourseUnlocked(course.id) && !unlockedIds.has(course.id)) {
+      setPasswordModal({ courseId: course.id, courseTitle: course.title })
+      return
+    }
     const firstLesson = course.chapters[0]?.lessons[0]
     setSelectedCourseId(course.id)
     setSelectedId(firstLesson?.id ?? '')
@@ -402,10 +484,23 @@ export default function Education() {
     setActivePart(0)
   }
 
+  const handlePasswordSuccess = (courseId: number) => {
+    setUnlockedIds(prev => new Set([...prev, courseId]))
+    setPasswordModal(null)
+    const course = courses.find(c => c.id === courseId)
+    if (course) {
+      const firstLesson = course.chapters[0]?.lessons[0]
+      setSelectedCourseId(course.id)
+      setSelectedId(firstLesson?.id ?? '')
+      setExpandedChapters(new Set([course.chapters[0]?.id ?? 1]))
+      setActivePart(0)
+    }
+  }
+
   const handleBack = () => { setSelectedCourseId(null); setSelectedId('') }
 
   const handleSelect = (lesson: FlatLesson) => {
-    if (selectedCourse?.is_paid) return  // locked — show paywall only
+    if (selectedCourse?.is_paid && !selectedCourse?.has_access) return  // locked — show paywall only
     setSelectedId(lesson.id)
     setActivePart(0)
     setExpandedChapters((prev) => new Set([...prev, lesson.chapterId]))
@@ -439,6 +534,14 @@ export default function Education() {
   return (
     <div className="space-y-5">
       {showCoachingModal && <CoachingModal onClose={() => setShowCoachingModal(false)} />}
+      {passwordModal && (
+        <PasswordModal
+          courseId={passwordModal.courseId}
+          courseTitle={passwordModal.courseTitle}
+          onSuccess={() => handlePasswordSuccess(passwordModal.courseId)}
+          onClose={() => setPasswordModal(null)}
+        />
+      )}
 
       {/* Header */}
       <div>
@@ -515,6 +618,8 @@ export default function Education() {
                         <div className="absolute top-3.5 right-3.5 bg-white text-violet-700 text-xs font-extrabold px-3 py-1.5 rounded-xl shadow-md border border-violet-100 tracking-wide">
                           SUR DEVIS
                         </div>
+                      ) : course.has_password && !isCourseUnlocked(course.id) && !unlockedIds.has(course.id) ? (
+                        <PasswordBadge />
                       ) : course.is_paid ? (
                         <div className="absolute top-3.5 right-3.5 flex items-center gap-1 bg-white text-amber-600 font-extrabold px-3 py-1.5 rounded-xl shadow-md border border-amber-100">
                           <Lock size={10} className="flex-shrink-0" />
@@ -580,7 +685,7 @@ export default function Education() {
           {selectedCourseId !== null && selectedCourse && (
             <>
               {/* Breadcrumb */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <button
                   onClick={handleBack}
                   className="flex items-center gap-1.5 text-sm text-brvm-muted hover:text-brvm-text transition-colors"
@@ -589,7 +694,7 @@ export default function Education() {
                 </button>
                 <span className="text-brvm-border">·</span>
                 <span className="text-sm font-semibold text-brvm-text">{selectedCourse.title}</span>
-                {selectedCourse.is_paid && (
+                {selectedCourse.is_paid && !selectedCourse.has_access && (
                   <>
                     <span className="text-brvm-border">·</span>
                     <span className="flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
@@ -597,6 +702,19 @@ export default function Education() {
                     </span>
                   </>
                 )}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.href)
+                      .then(() => {
+                        const btn = document.getElementById('copy-link-btn')
+                        if (btn) { btn.textContent = '✓ Lien copié !'; setTimeout(() => { btn.textContent = 'Partager' }, 2000) }
+                      })
+                  }}
+                  id="copy-link-btn"
+                  className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-brvm-green bg-brvm-green/10 hover:bg-brvm-green/20 px-3 py-1.5 rounded-lg transition-colors border border-brvm-green/20"
+                >
+                  <Link size={12} /> Partager
+                </button>
               </div>
 
               <div className="flex flex-col lg:flex-row gap-5 items-start">
@@ -612,7 +730,7 @@ export default function Education() {
                       </span>
                     </div>
 
-                    {selectedCourse.is_paid && (
+                    {selectedCourse.is_paid && !selectedCourse.has_access && (
                       <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-100 flex items-center gap-2">
                         <Lock size={12} className="text-amber-500 flex-shrink-0" />
                         <span className="text-xs text-amber-700 font-medium">Achetez le cours pour débloquer</span>
@@ -622,7 +740,7 @@ export default function Education() {
                     <div className="overflow-y-auto max-h-[65vh] lg:max-h-[72vh]">
                       {courseChapters.map((ch) => {
                         const isOpen    = expandedChapters.has(ch.id)
-                        const hasActive = ch.lessons.some((l) => l.id === selectedId)
+                        const hasActive = ch.lessons.some((l) => l.id === selectedId) && (!selectedCourse.is_paid || selectedCourse.has_access)
                         return (
                           <div key={ch.id} className="border-b border-brvm-border last:border-0">
                             <button
@@ -650,14 +768,14 @@ export default function Education() {
                             {isOpen && (
                               <div className="border-t border-brvm-border/60">
                                 {ch.lessons.map((lesson, idx) => {
-                                  const isActive = lesson.id === selectedId && !selectedCourse.is_paid
+                                  const isActive = lesson.id === selectedId && (!selectedCourse.is_paid || selectedCourse.has_access)
                                   const flat = allLessons.find((l) => l.id === lesson.id)!
                                   return (
                                     <button
                                       key={lesson.id}
                                       onClick={() => handleSelect(flat)}
                                       className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-colors border-b border-brvm-border/30 last:border-0 ${
-                                        selectedCourse.is_paid
+                                        selectedCourse.is_paid && !selectedCourse.has_access
                                           ? 'bg-slate-50 text-brvm-muted cursor-default opacity-70'
                                           : isActive
                                             ? 'bg-brvm-green/10 text-brvm-green'
@@ -672,7 +790,7 @@ export default function Education() {
                                       <span className={`text-xs leading-snug flex-1 ${isActive ? 'font-semibold' : ''}`}>
                                         {lesson.title}
                                       </span>
-                                      {selectedCourse.is_paid
+                                      {selectedCourse.is_paid && !selectedCourse.has_access
                                         ? <Lock size={11} className="flex-shrink-0 text-amber-400" />
                                         : lesson.parts && (
                                           <span className="ml-auto flex-shrink-0 text-[10px] bg-slate-200 text-brvm-muted px-1.5 py-0.5 rounded-full font-medium">
@@ -693,7 +811,7 @@ export default function Education() {
 
                 {/* Player or Paywall */}
                 <div className="flex-1 min-w-0 max-w-2xl" ref={playerRef}>
-                  {selectedCourse.is_paid ? (
+                  {selectedCourse.is_paid && !selectedCourse.has_access ? (
                     <div className="bg-white border border-brvm-border rounded-xl overflow-hidden shadow-sm">
                       <PaywallOverlay course={selectedCourse} />
                       {/* Course info below paywall */}
@@ -708,14 +826,11 @@ export default function Education() {
                     </div>
                   ) : currentLesson ? (
                     <div className="bg-white border border-brvm-border rounded-xl overflow-hidden shadow-sm">
-                      <div className="aspect-video bg-slate-900 w-full">
-                        <iframe
+                      <div className="bg-slate-900 w-full">
+                        <CustomYTPlayer
                           key={activeVideoId}
-                          src={`https://www.youtube.com/embed/${activeVideoId}?rel=0&modestbranding=1`}
+                          videoId={activeVideoId ?? ''}
                           title={currentLesson.title}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                          allowFullScreen
-                          className="w-full h-full"
                         />
                       </div>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, BookOpen, FileText, Search, Layers, GraduationCap, DollarSign } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, BookOpen, FileText, Search, Layers, GraduationCap, DollarSign, Users, ShieldCheck, X, KeyRound, Eye, EyeOff } from 'lucide-react'
 import api from '../api/axios'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -28,6 +28,7 @@ interface Course {
   is_paid: boolean
   price: number | null
   is_active: boolean
+  has_password?: boolean
   chapters?: Chapter[]
 }
 
@@ -56,6 +57,7 @@ const eApi = {
   createCourse: (data: Partial<Course>) => api.post('/education/admin/courses', data).then(r => r.data),
   updateCourse: (id: number, data: Partial<Course>) => api.put(`/education/admin/courses/${id}`, data).then(r => r.data),
   deleteCourse: (id: number) => api.delete(`/education/admin/courses/${id}`).then(r => r.data),
+  setCoursePassword: (id: number, password: string | null) => api.put(`/education/admin/courses/${id}/password`, { password }).then(r => r.data),
 
   // Chapters
   createChapter: (data: Partial<Chapter>) => api.post('/education/admin/chapters', data).then(r => r.data),
@@ -230,6 +232,7 @@ function TabFormations() {
   const [courseModal, setCourseModal] = useState<{ open: boolean; data: Partial<Course> }>({ open: false, data: {} })
   const [chapterModal, setChapterModal] = useState<{ open: boolean; courseId: number | null; data: Partial<Chapter> }>({ open: false, courseId: null, data: {} })
   const [lessonModal, setLessonModal] = useState<{ open: boolean; courseId: number | null; chapterId: number | null; data: Partial<Lesson> }>({ open: false, courseId: null, chapterId: null, data: {} })
+  const [pwModal, setPwModal] = useState<{ open: boolean; course: Course | null }>({ open: false, course: null })
 
   // Load courses with chapters/lessons
   const load = async () => {
@@ -368,6 +371,11 @@ function TabFormations() {
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${course.is_paid ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'}`}>
                   {course.is_paid ? 'Premium' : 'Gratuit'}
                 </span>
+                {course.has_password && (
+                  <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                    <KeyRound size={10} /> Protégé
+                  </span>
+                )}
               </div>
 
               {/* Card body */}
@@ -409,6 +417,17 @@ function TabFormations() {
                   className="flex items-center gap-1.5 text-xs font-medium text-brvm-red hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
                 >
                   <Trash2 size={12} /> Supprimer
+                </button>
+                <button
+                  onClick={() => setPwModal({ open: true, course })}
+                  className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                    course.has_password
+                      ? 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+                      : 'bg-slate-50 text-brvm-subtext hover:bg-slate-100 hover:text-brvm-text'
+                  }`}
+                  title={course.has_password ? 'Mot de passe actif' : 'Définir un mot de passe'}
+                >
+                  <KeyRound size={12} /> {course.has_password ? 'MDP actif' : 'MDP'}
                 </button>
                 <button
                   onClick={() => setStructureOpen(isStructureOpen ? null : course.id)}
@@ -576,6 +595,149 @@ function TabFormations() {
           </div>
         </Modal>
       )}
+
+      {/* Modal Mot de passe cours */}
+      {pwModal.open && pwModal.course && (
+        <PasswordCourseModal
+          course={pwModal.course}
+          onClose={() => setPwModal({ open: false, course: null })}
+          onSaved={(courseId, hasPassword) => {
+            setCourses(prev => prev.map(c => c.id === courseId ? { ...c, has_password: hasPassword } : c))
+            setPwModal({ open: false, course: null })
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── Modal Mot de passe cours ─────────────────────────────────────────────────
+function PasswordCourseModal({
+  course, onClose, onSaved,
+}: {
+  course: { id: number; title: string; has_password?: boolean }
+  onClose: () => void
+  onSaved: (courseId: number, hasPassword: boolean) => void
+}) {
+  const [password,  setPassword]  = useState('')
+  const [showPw,    setShowPw]    = useState(false)
+  const [loading,   setLoading]   = useState(false)
+  const [error,     setError]     = useState('')
+  const [success,   setSuccess]   = useState('')
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const handleSet = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!password) return
+    setLoading(true); setError('')
+    try {
+      await eApi.setCoursePassword(course.id, password)
+      setSuccess('Mot de passe défini avec succès !')
+      setTimeout(() => onSaved(course.id, true), 1000)
+    } catch {
+      setError('Erreur lors de la définition du mot de passe.')
+    } finally { setLoading(false) }
+  }
+
+  const handleRemove = async () => {
+    if (!confirm('Supprimer le mot de passe de ce cours ?')) return
+    setLoading(true); setError('')
+    try {
+      await eApi.setCoursePassword(course.id, null)
+      setSuccess('Mot de passe supprimé.')
+      setTimeout(() => onSaved(course.id, false), 800)
+    } catch {
+      setError('Erreur lors de la suppression.')
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-brvm-border">
+          <div className="flex items-center gap-2.5">
+            <div className="bg-amber-50 rounded-xl p-2">
+              <KeyRound size={16} className="text-amber-600" />
+            </div>
+            <div>
+              <p className="text-xs text-brvm-muted">Protection par mot de passe</p>
+              <h3 className="font-bold text-brvm-text text-sm leading-tight truncate max-w-[200px]">{course.title}</h3>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-brvm-muted hover:text-brvm-text transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {/* Statut actuel */}
+          <div className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium ${
+            course.has_password ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-50 text-slate-500 border border-slate-200'
+          }`}>
+            <KeyRound size={14} className="flex-shrink-0" />
+            {course.has_password ? '🔐 Ce cours est actuellement protégé' : '🔓 Aucun mot de passe défini'}
+          </div>
+
+          {/* Formulaire */}
+          <form onSubmit={handleSet} className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-brvm-subtext mb-1.5 uppercase tracking-wider">
+                {course.has_password ? 'Nouveau mot de passe' : 'Définir un mot de passe'}
+              </label>
+              <div className="relative">
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError('') }}
+                  placeholder="Entrez le mot de passe…"
+                  className="w-full border border-brvm-border rounded-xl px-4 py-2.5 pr-10 text-sm text-brvm-text placeholder:text-brvm-muted focus:outline-none focus:border-brvm-green focus:ring-2 focus:ring-brvm-green/20 transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(!showPw)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-brvm-muted hover:text-brvm-text"
+                >
+                  {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+            </div>
+
+            {error   && <p className="text-red-500 text-xs">⚠ {error}</p>}
+            {success && <p className="text-brvm-green text-xs font-semibold">✓ {success}</p>}
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="submit"
+                disabled={!password || loading}
+                className="flex-1 bg-brvm-green text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-brvm-green/90 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                <KeyRound size={14} />
+                {loading ? 'Enregistrement…' : course.has_password ? 'Changer le MDP' : 'Activer le MDP'}
+              </button>
+              {course.has_password && (
+                <button
+                  type="button"
+                  onClick={handleRemove}
+                  disabled={loading}
+                  className="px-4 py-2.5 rounded-xl border border-red-200 text-red-500 text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-40"
+                  title="Supprimer le mot de passe"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   )
 }
@@ -735,8 +897,296 @@ function TabGlossaire() {
   )
 }
 
+// ─── API helpers for Users & Course Access ────────────────────────────────────
+interface UserResult {
+  id: number
+  name: string
+  email: string
+  role: string
+  subscription_type: string
+  is_active: boolean
+}
+
+interface CourseAccessEntry {
+  id: number
+  user_id: number
+  course_id: number
+  granted_by: number
+  granted_at: string
+  expires_at: string | null
+  note: string | null
+}
+
+const uApi = {
+  searchUsers: (search: string) =>
+    api.get(`/users/admin/users?search=${encodeURIComponent(search)}&limit=20`).then(r => r.data as { users: UserResult[]; total: number }),
+  getUserAccesses: (userId: number) =>
+    api.get(`/users/admin/users/${userId}/course-access`).then(r => r.data as { user: UserResult; accesses: CourseAccessEntry[] }),
+  grantAccess: (userId: number, data: { course_id: number; expires_at?: string; note?: string }) =>
+    api.post(`/users/admin/users/${userId}/course-access`, data).then(r => r.data),
+  revokeAccess: (userId: number, courseId: number) =>
+    api.delete(`/users/admin/users/${userId}/course-access/${courseId}`).then(r => r.data),
+}
+
+// ─── Tab Accès Utilisateurs ───────────────────────────────────────────────────
+function TabAccesUtilisateurs() {
+  const [search, setSearch] = useState('')
+  const [searchResults, setSearchResults] = useState<UserResult[]>([])
+  const [searching, setSearching] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<UserResult | null>(null)
+  const [userAccesses, setUserAccesses] = useState<CourseAccessEntry[]>([])
+  const [loadingAccesses, setLoadingAccesses] = useState(false)
+  const [courses, setCourses] = useState<Course[]>([])
+
+  // Grant access modal state
+  const [grantModal, setGrantModal] = useState(false)
+  const [grantData, setGrantData] = useState<{ course_id: number | ''; expires_at: string; note: string }>({ course_id: '', expires_at: '', note: '' })
+  const [saving, setSaving] = useState(false)
+
+  // Load paid courses for the selector
+  useEffect(() => {
+    eApi.getCourses().then(data => {
+      setCourses(data.filter((c: any) => c.is_paid))
+    }).catch(() => {})
+  }, [])
+
+  const doSearch = async () => {
+    if (!search.trim()) return
+    setSearching(true)
+    try {
+      const res = await uApi.searchUsers(search)
+      setSearchResults(res.users)
+      setSelectedUser(null)
+      setUserAccesses([])
+    } catch {
+      alert('Erreur lors de la recherche.')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const selectUser = async (user: UserResult) => {
+    setSelectedUser(user)
+    setLoadingAccesses(true)
+    try {
+      const res = await uApi.getUserAccesses(user.id)
+      setUserAccesses(res.accesses)
+    } catch {
+      setUserAccesses([])
+    } finally {
+      setLoadingAccesses(false)
+    }
+  }
+
+  const handleGrant = async () => {
+    if (!selectedUser || !grantData.course_id) return
+    setSaving(true)
+    try {
+      await uApi.grantAccess(selectedUser.id, {
+        course_id: grantData.course_id as number,
+        expires_at: grantData.expires_at || undefined,
+        note: grantData.note || undefined,
+      })
+      setGrantModal(false)
+      setGrantData({ course_id: '', expires_at: '', note: '' })
+      const res = await uApi.getUserAccesses(selectedUser.id)
+      setUserAccesses(res.accesses)
+    } catch {
+      alert('Erreur lors de l\'attribution de l\'accès.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRevoke = async (courseId: number) => {
+    if (!selectedUser) return
+    if (!confirm('Révoquer cet accès ?')) return
+    try {
+      await uApi.revokeAccess(selectedUser.id, courseId)
+      const res = await uApi.getUserAccesses(selectedUser.id)
+      setUserAccesses(res.accesses)
+    } catch {
+      alert('Erreur lors de la révocation.')
+    }
+  }
+
+  const getCourseTitle = (courseId: number) => {
+    const c = courses.find(x => x.id === courseId)
+    return c ? c.title : `Cours #${courseId}`
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-bold text-brvm-text text-base flex items-center gap-2">
+          <ShieldCheck size={18} className="text-brvm-green" />
+          Accès Utilisateurs
+        </h2>
+      </div>
+
+      {/* Search bar */}
+      <div className="flex gap-2 mb-6">
+        <div className="relative flex-1 max-w-md">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-brvm-muted" />
+          <input
+            type="text"
+            placeholder="Rechercher par nom ou email…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && doSearch()}
+            className={inputCls + ' pl-8'}
+          />
+        </div>
+        <button onClick={doSearch} disabled={searching} className={btnPrimary}>
+          {searching ? 'Recherche…' : 'Rechercher'}
+        </button>
+      </div>
+
+      {/* Results grid */}
+      {searchResults.length > 0 && (
+        <div className="mb-6">
+          <p className="text-xs font-semibold text-brvm-subtext uppercase tracking-wider mb-3">
+            Résultats ({searchResults.length})
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {searchResults.map(user => (
+              <button
+                key={user.id}
+                onClick={() => selectUser(user)}
+                className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                  selectedUser?.id === user.id
+                    ? 'border-brvm-green bg-brvm-green/5 shadow-sm'
+                    : 'border-brvm-border bg-white hover:border-brvm-green/40 hover:bg-slate-50'
+                }`}
+              >
+                <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                  <Users size={15} className="text-brvm-subtext" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-brvm-text truncate">{user.name}</p>
+                  <p className="text-xs text-brvm-muted truncate">{user.email}</p>
+                </div>
+                <div className="ml-auto flex-shrink-0">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    user.role === 'admin' ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {user.role}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Selected user accesses */}
+      {selectedUser && (
+        <div className="bg-white border border-brvm-green/30 rounded-2xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-bold text-brvm-text">{selectedUser.name}</h3>
+              <p className="text-xs text-brvm-muted">{selectedUser.email}</p>
+            </div>
+            <button
+              onClick={() => setGrantModal(true)}
+              className={btnPrimary}
+            >
+              <span className="flex items-center gap-1.5"><Plus size={14} /> Donner accès</span>
+            </button>
+          </div>
+
+          {loadingAccesses ? (
+            <p className="text-brvm-muted text-sm text-center py-4">Chargement…</p>
+          ) : userAccesses.length === 0 ? (
+            <p className="text-brvm-muted text-sm text-center py-6">Aucun accès spécial accordé.</p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-brvm-subtext uppercase tracking-wider mb-2">
+                Accès accordés ({userAccesses.length})
+              </p>
+              {userAccesses.map(access => (
+                <div key={access.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-brvm-border">
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-brvm-text">{getCourseTitle(access.course_id)}</p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="text-xs text-brvm-muted">
+                        Accordé le {new Date(access.granted_at).toLocaleDateString('fr-FR')}
+                      </span>
+                      {access.expires_at && (
+                        <span className="text-xs text-amber-600 font-medium">
+                          Expire le {new Date(access.expires_at).toLocaleDateString('fr-FR')}
+                        </span>
+                      )}
+                      {!access.expires_at && (
+                        <span className="text-xs text-brvm-green font-medium">Sans expiration</span>
+                      )}
+                    </div>
+                    {access.note && (
+                      <p className="text-xs text-brvm-subtext mt-0.5 italic">"{access.note}"</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleRevoke(access.course_id)}
+                    className={btnDanger}
+                    title="Révoquer l'accès"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Grant access modal */}
+      {grantModal && selectedUser && (
+        <Modal title={`Donner accès à ${selectedUser.name}`} onClose={() => setGrantModal(false)}>
+          <Field label="Cours payant">
+            <select
+              className={inputCls}
+              value={grantData.course_id}
+              onChange={e => setGrantData(d => ({ ...d, course_id: e.target.value ? Number(e.target.value) : '' }))}
+            >
+              <option value="">-- Sélectionner un cours --</option>
+              {courses.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.title} {c.price ? `(${c.price.toLocaleString('fr-FR')} FCFA)` : ''}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Date d'expiration (optionnel)">
+            <input
+              type="datetime-local"
+              className={inputCls}
+              value={grantData.expires_at}
+              onChange={e => setGrantData(d => ({ ...d, expires_at: e.target.value }))}
+            />
+          </Field>
+          <Field label="Note (optionnel)">
+            <input
+              type="text"
+              className={inputCls}
+              placeholder="Ex: Accès offert, partenariat…"
+              value={grantData.note}
+              onChange={e => setGrantData(d => ({ ...d, note: e.target.value }))}
+            />
+          </Field>
+          <div className="flex gap-3 justify-end mt-2">
+            <button onClick={() => setGrantModal(false)} className="px-4 py-2 rounded-lg border border-brvm-border text-sm text-brvm-muted">Annuler</button>
+            <button onClick={handleGrant} disabled={!grantData.course_id || saving} className={btnPrimary}>
+              {saving ? 'Enregistrement…' : 'Accorder l\'accès'}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
-type Tab = 'formations' | 'articles' | 'glossaire'
+type Tab = 'formations' | 'articles' | 'glossaire' | 'acces'
 
 export default function AdminEducation() {
   const [tab, setTab] = useState<Tab>('formations')
@@ -745,6 +1195,7 @@ export default function AdminEducation() {
     { key: 'formations', label: 'Formations', icon: <BookOpen size={15} /> },
     { key: 'articles',   label: 'Articles',   icon: <FileText size={15} /> },
     { key: 'glossaire',  label: 'Glossaire',  icon: <Search size={15} /> },
+    { key: 'acces',      label: 'Accès',      icon: <ShieldCheck size={15} /> },
   ]
 
   return (
@@ -768,6 +1219,7 @@ export default function AdminEducation() {
         {tab === 'formations' && <TabFormations />}
         {tab === 'articles'   && <TabArticles />}
         {tab === 'glossaire'  && <TabGlossaire />}
+        {tab === 'acces'      && <TabAccesUtilisateurs />}
       </div>
     </div>
   )

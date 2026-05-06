@@ -5,7 +5,7 @@ import {
   Copy, Check, Download, Eye, EyeOff, Trash2, RefreshCw,
   ChevronRight, AlertCircle, CheckCircle2, FileSpreadsheet,
   Building2, BarChart2, TrendingUp, Newspaper, MessageSquare, Target, BookOpen,
-  GraduationCap, Users, Settings2,
+  GraduationCap, Users, Settings2, Activity,
 } from 'lucide-react'
 import * as pdfjsLib from 'pdfjs-dist'
 import DataImport from './DataImport'
@@ -27,7 +27,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 /* ══════════════════════════════════════════════════════════════
    TYPES
 ══════════════════════════════════════════════════════════════ */
-type Module = 'apercu' | 'societes' | 'fondamentaux' | 'dividendes' | 'bulletin' | 'historique' | 'actualites' | 'resume' | 'recommandations' | 'rapports' | 'education' | 'assetmanagers'
+type Module = 'apercu' | 'societes' | 'fondamentaux' | 'dividendes' | 'bulletin' | 'historique' | 'actualites' | 'resume' | 'recommandations' | 'rapports' | 'education' | 'assetmanagers' | 'analytics'
 
 interface BulletinRow {
   id:            number
@@ -308,6 +308,7 @@ function Sidebar({ active, onChange }: SidebarProps) {
   const platformItems: NavItem[] = [
     { id: 'education',    icon: <GraduationCap size={16} />, label: 'Formations',           sub: 'Cours & leçons' },
     { id: 'assetmanagers',icon: <Users         size={16} />, label: 'Soc. de gestion',     sub: 'SGI & SGO' },
+    { id: 'analytics',    icon: <Activity      size={16} />, label: 'Analytics',            sub: 'Visiteurs & trafic' },
   ]
   const toolItems: NavItem[] = [
     { id: 'bulletin',  icon: <FileText        size={16} />, label: 'Bulletin de la Cote', sub: 'PDF → SQL' },
@@ -893,8 +894,38 @@ const MODULE_LABELS: Record<Module, string> = {
   rapports:        'Rapports financiers',
   education:       'Formations',
   assetmanagers:   'Sociétés de gestion',
+  analytics:       'Analytics',
   bulletin:        'Bulletin de la Cote',
   historique:      'Import Historique',
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MODULE ANALYTICS
+══════════════════════════════════════════════════════════════ */
+function ModuleAnalytics() {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-bold text-brvm-text">Analytics — Visiteurs & Trafic</h2>
+        <p className="text-brvm-subtext text-sm mt-0.5">
+          Statistiques en temps réel de <span className="font-medium text-brvm-green">afrivesting.com</span>
+          {' · '}
+          <a href="https://analytics.afrivesting.com" target="_blank" rel="noopener noreferrer"
+            className="text-brvm-green hover:underline text-xs">
+            Ouvrir dans un nouvel onglet ↗
+          </a>
+        </p>
+      </div>
+      <div className="bg-white border border-brvm-border rounded-xl overflow-hidden shadow-sm" style={{ height: '82vh' }}>
+        <iframe
+          src="https://analytics.afrivesting.com/share/afrivesting1"
+          className="w-full h-full border-0"
+          title="Umami Analytics"
+          allow="fullscreen"
+        />
+      </div>
+    </div>
+  )
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -943,6 +974,7 @@ export default function Admin() {
           {module === 'rapports'        && <AdminRapports />}
           {module === 'education'       && <AdminEducation />}
           {module === 'assetmanagers'   && <AdminAssetManagers />}
+          {module === 'analytics'       && <ModuleAnalytics />}
           {module === 'bulletin'        && <ModuleBulletin />}
           {module === 'historique'      && <DataImport />}
         </div>

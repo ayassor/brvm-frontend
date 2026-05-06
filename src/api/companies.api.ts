@@ -46,13 +46,16 @@ export interface FundamentalsResponse {
     pct: number
     type: 'institutionnel' | 'etat' | 'fondateur' | 'public'
   }[]
+  shares_count: number | null
   dividends: {
+    id: number
     year: number
     amount_fcfa: number
     payment_date: string
     ex_date: string | null
   }[]
   recent_news: {
+    id: number
     date: string
     headline: string
     positive: boolean | null

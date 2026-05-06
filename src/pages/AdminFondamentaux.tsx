@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import {
   Search, Save, Plus, X, BarChart2, RefreshCw,
   AlertCircle, CheckCircle2, Pencil, ChevronDown,
+  Trash2,
 } from 'lucide-react'
 import { companiesApi } from '../api/companies.api'
 import api from '../api/axios'
@@ -24,6 +25,22 @@ interface FinancialYear {
   dividend_per_share_fcfa: number | null
 }
 
+interface Dividend {
+  id: number
+  year: number
+  amount_fcfa: number
+  payment_date: string
+  ex_date?: string | null
+}
+
+// positive: true = positif, false = négatif, null = neutre
+interface NewsItem {
+  id: number
+  date: string
+  headline: string
+  positive: boolean | null
+}
+
 interface FondamentauxForm {
   // Section 1 – Métriques financières
   pe_ratio: string
@@ -39,6 +56,7 @@ interface FondamentauxForm {
   founded: string
   employees: string
   website: string
+  shares_count: string
   // Section 3 – Activités
   activities: string[]
   // Section 4 – Certifications
@@ -74,7 +92,8 @@ function buildEmptyForm(): FondamentauxForm {
     pe_ratio: '', dividend_yield_pct: '', revenue_bn_fcfa: '',
     net_income_bn_fcfa: '', ebitda_bn_fcfa: '', net_margin_pct: '',
     free_float_pct: '', ceo: '', ceo_title: '', founded: '',
-    employees: '', website: '', activities: [], certifications: [],
+    employees: '', website: '', shares_count: '',
+    activities: [], certifications: [],
     shareholders: [],
     history: HISTORY_YEARS.map(y => ({
       year: y, revenue_m_fcfa: null, net_income_m_fcfa: null,
@@ -113,6 +132,19 @@ export default function AdminFondamentaux() {
   const [allCompanies, setAllCompanies] = useState<Company[]>([])
   const [companiesWithData, setCompaniesWithData] = useState<Set<number>>(new Set())
 
+  // Dividendes state
+  const [dividends, setDividends] = useState<Dividend[]>([])
+  const [addingDividend, setAddingDividend] = useState(false)
+  const [newDividend, setNewDividend] = useState({ year: '', amount: '', payment_date: '', ex_date: '' })
+  const [savingDividend, setSavingDividend] = useState(false)
+
+  // Actualités state
+  const [news, setNews] = useState<NewsItem[]>([])
+  const [addingNews, setAddingNews] = useState(false)
+  // 'true'=positif, 'false'=négatif, 'null'=neutre (strings for select value)
+  const [newNewsItem, setNewNewsItem] = useState({ date: '', headline: '', sentimentStr: 'null' })
+  const [savingNews, setSavingNews] = useState(false)
+
   const companies = allCompanies.filter(c =>
     c.ticker.toLowerCase().includes(search.toLowerCase()) ||
     c.name.toLowerCase().includes(search.toLowerCase())
@@ -137,6 +169,8 @@ export default function AdminFondamentaux() {
   async function loadCompany(id: number) {
     setLoading(true)
     setSelectedId(id)
+    setDividends([])
+    setNews([])
     try {
       const company = allCompanies.find(c => c.id === id)
       if (!company) throw new Error('Société introuvable')
@@ -156,11 +190,12 @@ export default function AdminFondamentaux() {
         founded:            json.founded  != null ? String(json.founded)   : '',
         employees:          json.employees != null ? String(json.employees) : '',
         website:            json.website  ?? '',
+        shares_count:       json.shares_count != null ? String(json.shares_count) : '',
         activities:         Array.isArray(json.activities)     ? json.activities     : [],
         certifications:     Array.isArray(json.certifications) ? json.certifications : [],
         shareholders:       Array.isArray(json.shareholders)   ? json.shareholders   : [],
         history: HISTORY_YEARS.map(y => {
-          const found = (json.history ?? []).find(h => String(h.year) === y.replace('e', ''))
+          const found = (json.history ?? []).find((h: { year: number }) => String(h.year) === y.replace('e', ''))
           return found
             ? { year: y, revenue_m_fcfa: found.revenue_m_fcfa, net_income_m_fcfa: found.net_income_m_fcfa,
                 ebitda_m_fcfa: found.ebitda_m_fcfa, pe_ratio: found.pe_ratio,
@@ -173,6 +208,10 @@ export default function AdminFondamentaux() {
       setForm(data)
       setSavedForm(JSON.stringify(data))
       setCompaniesWithData(prev => new Set([...prev, id]))
+
+      // Load dividends and news from fundamentals response
+      if (Array.isArray(json.dividends)) setDividends(json.dividends)
+      if (Array.isArray(json.recent_news)) setNews(json.recent_news)
     } catch {
       showToast('error', 'Impossible de charger les données depuis l\'API')
       const empty = buildEmptyForm()
@@ -198,7 +237,35 @@ export default function AdminFondamentaux() {
 
     setSaving(true)
     try {
-      await api.put(`/companies/${company.ticker}/fundamentals`, form)
+      await Promise.all([
+        // Infos société
+        api.put(`/admin/companies/${company.ticker}`, {
+          ceo:            form.ceo,
+          ceo_title:      form.ceo_title,
+          founded:        form.founded        ? parseInt(form.founded)        : null,
+          employees:      form.employees      ? parseInt(form.employees)      : null,
+          website:        form.website,
+          free_float_pct: form.free_float_pct ? parseFloat(form.free_float_pct) : null,
+          activities:     form.activities,
+          certifications: form.certifications,
+          shares_count:   form.shares_count   ? parseInt(form.shares_count)   : null,
+        }),
+        // Historique financier
+        api.put(`/admin/companies/${company.ticker}/financial-history`,
+          form.history.map(h => ({
+            year:                    parseInt(h.year.replace('e', '')),
+            revenue_m_fcfa:          h.revenue_m_fcfa,
+            net_income_m_fcfa:       h.net_income_m_fcfa,
+            ebitda_m_fcfa:           h.ebitda_m_fcfa,
+            pe_ratio:                h.pe_ratio,
+            eps_fcfa:                h.eps_fcfa,
+            dividend_per_share_fcfa: h.dividend_per_share_fcfa,
+          }))
+        ),
+        // Actionnariat
+        api.put(`/admin/companies/${company.ticker}/shareholders`, form.shareholders),
+      ])
+
       setSavedForm(JSON.stringify(form))
       showToast('success', `Données de ${company.ticker} enregistrées avec succès`)
     } catch {
@@ -278,6 +345,84 @@ export default function AdminFondamentaux() {
       return { ...row, [key]: isNaN(n as number) ? null : n }
     })
     setField('history', updated)
+  }
+
+  /* ── Dividendes ────────────────────────────────────────────── */
+  async function handleAddDividend() {
+    const company = selectedId ? allCompanies.find(c => c.id === selectedId) : null
+    if (!company) return
+    if (!newDividend.year || !newDividend.amount || !newDividend.payment_date) {
+      showToast('error', 'Année, montant et date de paiement sont requis')
+      return
+    }
+    setSavingDividend(true)
+    try {
+      const res = await api.post(`/admin/companies/${company.ticker}/dividends`, {
+        year:         parseInt(newDividend.year),
+        amount_fcfa:  parseFloat(newDividend.amount),
+        payment_date: newDividend.payment_date,
+        ex_date:      newDividend.ex_date || null,
+      })
+      setDividends(prev => [...prev, res.data])
+      setNewDividend({ year: '', amount: '', payment_date: '', ex_date: '' })
+      setAddingDividend(false)
+      showToast('success', 'Dividende ajouté')
+    } catch {
+      showToast('error', 'Impossible d\'ajouter le dividende')
+    } finally {
+      setSavingDividend(false)
+    }
+  }
+
+  async function handleDeleteDividend(id: number) {
+    const company = selectedId ? allCompanies.find(c => c.id === selectedId) : null
+    if (!company) return
+    try {
+      await api.delete(`/admin/companies/${company.ticker}/dividends/${id}`)
+      setDividends(prev => prev.filter(d => d.id !== id))
+      showToast('success', 'Dividende supprimé')
+    } catch {
+      showToast('error', 'Impossible de supprimer le dividende')
+    }
+  }
+
+  /* ── Actualités ────────────────────────────────────────────── */
+  async function handleAddNews() {
+    const company = selectedId ? allCompanies.find(c => c.id === selectedId) : null
+    if (!company) return
+    if (!newNewsItem.date || !newNewsItem.headline) {
+      showToast('error', 'Date et titre sont requis')
+      return
+    }
+    const positiveVal = newNewsItem.sentimentStr === 'true' ? true : newNewsItem.sentimentStr === 'false' ? false : null
+    setSavingNews(true)
+    try {
+      const res = await api.post(`/admin/companies/${company.ticker}/news`, {
+        date:     newNewsItem.date,
+        headline: newNewsItem.headline,
+        positive: positiveVal,
+      })
+      setNews(prev => [res.data, ...prev].slice(0, 10))
+      setNewNewsItem({ date: '', headline: '', sentimentStr: 'null' })
+      setAddingNews(false)
+      showToast('success', 'Actualité ajoutée')
+    } catch {
+      showToast('error', 'Impossible d\'ajouter l\'actualité')
+    } finally {
+      setSavingNews(false)
+    }
+  }
+
+  async function handleDeleteNews(id: number) {
+    const company = selectedId ? allCompanies.find(c => c.id === selectedId) : null
+    if (!company) return
+    try {
+      await api.delete(`/admin/companies/${company.ticker}/news/${id}`)
+      setNews(prev => prev.filter(n => n.id !== id))
+      showToast('success', 'Actualité supprimée')
+    } catch {
+      showToast('error', 'Impossible de supprimer l\'actualité')
+    }
   }
 
   /* ── Focus new-item inputs when shown ──────────────────────── */
@@ -495,6 +640,18 @@ export default function AdminFondamentaux() {
                       value={form.website}
                       onChange={e => setField('website', e.target.value)}
                       placeholder="www.exemple.ci"
+                      className="w-full px-3 py-2 bg-brvm-bg border border-brvm-border rounded-lg text-sm text-brvm-text placeholder:text-brvm-muted focus:outline-none focus:border-brvm-green transition-colors"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-brvm-subtext mb-1">
+                      Nombre de titres en circulation
+                    </label>
+                    <input
+                      type="number"
+                      value={form.shares_count}
+                      onChange={e => setField('shares_count', e.target.value)}
+                      placeholder="ex : 10000000"
                       className="w-full px-3 py-2 bg-brvm-bg border border-brvm-border rounded-lg text-sm text-brvm-text placeholder:text-brvm-muted focus:outline-none focus:border-brvm-green transition-colors"
                     />
                   </div>
@@ -755,6 +912,226 @@ export default function AdminFondamentaux() {
                     </tbody>
                   </table>
                 </div>
+              </Section>
+
+              {/* ─── SECTION 7 : Dividendes ─────────────────────── */}
+              <Section title="Dividendes">
+                {dividends.length > 0 && (
+                  <div className="overflow-x-auto mb-4">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-brvm-muted border-b border-brvm-border">
+                          <th className="pb-2 pr-4 font-medium w-20">Année</th>
+                          <th className="pb-2 pr-4 font-medium">Montant (FCFA)</th>
+                          <th className="pb-2 pr-4 font-medium">Date de paiement</th>
+                          <th className="pb-2 pr-4 font-medium">Date ex-dividende</th>
+                          <th className="pb-2 w-8"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dividends.map(d => (
+                          <tr key={d.id} className="border-b border-brvm-border/40">
+                            <td className="py-2 pr-4">
+                              <span className="text-xs font-semibold font-mono text-brvm-text">{d.year}</span>
+                            </td>
+                            <td className="py-2 pr-4 tabular-nums text-brvm-text text-sm">
+                              {d.amount_fcfa.toLocaleString('fr-FR')}
+                            </td>
+                            <td className="py-2 pr-4 text-brvm-subtext text-xs">{d.payment_date}</td>
+                            <td className="py-2 pr-4 text-brvm-subtext text-xs">{d.ex_date ?? '—'}</td>
+                            <td className="py-2 text-center">
+                              <button
+                                onClick={() => handleDeleteDividend(d.id)}
+                                className="text-brvm-muted hover:text-brvm-red transition-colors"
+                                title="Supprimer"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {dividends.length === 0 && !addingDividend && (
+                  <p className="text-xs text-brvm-muted italic mb-3">Aucun dividende enregistré</p>
+                )}
+
+                {addingDividend ? (
+                  <div className="bg-brvm-bg border border-brvm-border rounded-lg p-4 mb-3">
+                    <p className="text-xs font-semibold text-brvm-text mb-3">Nouveau dividende</p>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="block text-xs text-brvm-subtext mb-1">Année *</label>
+                        <input
+                          type="number"
+                          value={newDividend.year}
+                          onChange={e => setNewDividend(p => ({ ...p, year: e.target.value }))}
+                          placeholder="2024"
+                          className="w-full px-3 py-2 bg-white border border-brvm-border rounded-lg text-sm text-brvm-text placeholder:text-brvm-muted focus:outline-none focus:border-brvm-green transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-brvm-subtext mb-1">Montant FCFA *</label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={newDividend.amount}
+                          onChange={e => setNewDividend(p => ({ ...p, amount: e.target.value }))}
+                          placeholder="500"
+                          className="w-full px-3 py-2 bg-white border border-brvm-border rounded-lg text-sm text-brvm-text placeholder:text-brvm-muted focus:outline-none focus:border-brvm-green transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-brvm-subtext mb-1">Date de paiement *</label>
+                        <input
+                          type="date"
+                          value={newDividend.payment_date}
+                          onChange={e => setNewDividend(p => ({ ...p, payment_date: e.target.value }))}
+                          className="w-full px-3 py-2 bg-white border border-brvm-border rounded-lg text-sm text-brvm-text focus:outline-none focus:border-brvm-green transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-brvm-subtext mb-1">Date ex-dividende (optionnel)</label>
+                        <input
+                          type="date"
+                          value={newDividend.ex_date}
+                          onChange={e => setNewDividend(p => ({ ...p, ex_date: e.target.value }))}
+                          className="w-full px-3 py-2 bg-white border border-brvm-border rounded-lg text-sm text-brvm-text focus:outline-none focus:border-brvm-green transition-colors"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleAddDividend}
+                        disabled={savingDividend}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brvm-green text-white text-xs font-semibold rounded-lg hover:bg-brvm-green/90 disabled:opacity-60 transition-colors"
+                      >
+                        {savingDividend ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
+                        Enregistrer
+                      </button>
+                      <button
+                        onClick={() => { setAddingDividend(false); setNewDividend({ year: '', amount: '', payment_date: '', ex_date: '' }) }}
+                        className="px-3 py-1.5 bg-white border border-brvm-border text-brvm-subtext text-xs rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAddingDividend(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-brvm-border rounded-lg text-xs text-brvm-muted hover:border-brvm-green hover:text-brvm-green transition-colors"
+                  >
+                    <Plus size={13} />
+                    Ajouter un dividende
+                  </button>
+                )}
+              </Section>
+
+              {/* ─── SECTION 8 : Actualités ─────────────────────── */}
+              <Section title="Actualités récentes">
+                {news.length > 0 && (
+                  <div className="space-y-2 mb-4">
+                    {news.map(item => (
+                      <div
+                        key={item.id}
+                        className="flex items-start gap-3 px-3 py-2.5 bg-brvm-bg border border-brvm-border rounded-lg"
+                      >
+                        <div className="flex-shrink-0 mt-0.5">
+                          <span className={`inline-block w-2 h-2 rounded-full ${
+                            item.positive === true  ? 'bg-brvm-green' :
+                            item.positive === false ? 'bg-brvm-red' :
+                            'bg-gray-400'
+                          }`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-brvm-muted mb-0.5">{item.date}</p>
+                          <p className="text-sm text-brvm-text leading-snug">{item.headline}</p>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteNews(item.id)}
+                          className="flex-shrink-0 text-brvm-muted hover:text-brvm-red transition-colors mt-0.5"
+                          title="Supprimer"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {news.length === 0 && !addingNews && (
+                  <p className="text-xs text-brvm-muted italic mb-3">Aucune actualité enregistrée</p>
+                )}
+
+                {addingNews ? (
+                  <div className="bg-brvm-bg border border-brvm-border rounded-lg p-4 mb-3">
+                    <p className="text-xs font-semibold text-brvm-text mb-3">Nouvelle actualité</p>
+                    <div className="grid grid-cols-3 gap-3 mb-3">
+                      <div>
+                        <label className="block text-xs text-brvm-subtext mb-1">Date *</label>
+                        <input
+                          type="date"
+                          value={newNewsItem.date}
+                          onChange={e => setNewNewsItem(p => ({ ...p, date: e.target.value }))}
+                          className="w-full px-3 py-2 bg-white border border-brvm-border rounded-lg text-sm text-brvm-text focus:outline-none focus:border-brvm-green transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-brvm-subtext mb-1">Sentiment</label>
+                        <div className="relative">
+                          <select
+                            value={newNewsItem.sentimentStr}
+                            onChange={e => setNewNewsItem(p => ({ ...p, sentimentStr: e.target.value }))}
+                            className="w-full appearance-none px-3 py-2 bg-white border border-brvm-border rounded-lg text-sm text-brvm-text focus:outline-none focus:border-brvm-green transition-colors pr-8"
+                          >
+                            <option value="true">Positif</option>
+                            <option value="null">Neutre</option>
+                            <option value="false">Négatif</option>
+                          </select>
+                          <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-brvm-muted pointer-events-none" />
+                        </div>
+                      </div>
+                      <div className="col-span-3">
+                        <label className="block text-xs text-brvm-subtext mb-1">Titre / Headline *</label>
+                        <input
+                          type="text"
+                          value={newNewsItem.headline}
+                          onChange={e => setNewNewsItem(p => ({ ...p, headline: e.target.value }))}
+                          placeholder="Ex : Résultats annuels en hausse de 12%..."
+                          className="w-full px-3 py-2 bg-white border border-brvm-border rounded-lg text-sm text-brvm-text placeholder:text-brvm-muted focus:outline-none focus:border-brvm-green transition-colors"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleAddNews}
+                        disabled={savingNews}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brvm-green text-white text-xs font-semibold rounded-lg hover:bg-brvm-green/90 disabled:opacity-60 transition-colors"
+                      >
+                        {savingNews ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
+                        Enregistrer
+                      </button>
+                      <button
+                        onClick={() => { setAddingNews(false); setNewNewsItem({ date: '', headline: '', sentimentStr: 'null' }) }}
+                        className="px-3 py-1.5 bg-white border border-brvm-border text-brvm-subtext text-xs rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAddingNews(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-brvm-border rounded-lg text-xs text-brvm-muted hover:border-brvm-green hover:text-brvm-green transition-colors"
+                  >
+                    <Plus size={13} />
+                    Ajouter une actualité
+                  </button>
+                )}
               </Section>
 
             </div>
